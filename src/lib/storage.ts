@@ -1,20 +1,29 @@
 import { STORAGE_BUCKET, SUPPORTED_AUDIO_MIME_TYPES } from "@/lib/constants";
 
+const mimeTypeAliasMap = new Map<string, string>([
+  ["audio/mp3", "audio/mpeg"],
+  ["audio/x-m4a", "audio/m4a"],
+  ["video/mp4", "audio/mp4"],
+  ["video/webm", "audio/webm"],
+  ["video/ogg", "audio/ogg"],
+]);
+
 const extensionMap = new Map<string, string>([
   ["audio/mpeg", "mp3"],
-  ["audio/mp3", "mp3"],
   ["audio/mp4", "m4a"],
   ["audio/m4a", "m4a"],
+  ["audio/x-m4a", "m4a"],
   ["audio/aac", "aac"],
   ["audio/wav", "wav"],
   ["audio/webm", "webm"],
-  ["audio/webm;codecs=opus", "webm"],
   ["audio/ogg", "ogg"],
-  ["audio/ogg;codecs=opus", "ogg"],
 ]);
 
 export function normalizeMimeType(mimeType: string) {
-  return mimeType.toLowerCase().trim();
+  const normalized = mimeType.toLowerCase().trim();
+  const baseType = normalized.split(";")[0]?.trim() ?? normalized;
+
+  return mimeTypeAliasMap.get(baseType) ?? baseType;
 }
 
 export function isSupportedAudioMimeType(mimeType: string) {

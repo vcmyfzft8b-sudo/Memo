@@ -21,7 +21,8 @@ export default async function AuthErrorPage({
         </p>
         <Link
           href="/"
-          className="mt-8 inline-flex rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
+          className="mt-8 inline-flex rounded-full bg-blue-700 px-5 py-3 text-sm font-semibold !text-white no-underline shadow-[0_12px_30px_rgba(29,78,216,0.28)] transition hover:bg-blue-600"
+          style={{ color: "#ffffff" }}
         >
           Nazaj na začetek
         </Link>

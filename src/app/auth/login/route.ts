@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getPublicEnv } from "@/lib/public-env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
+  const { supabase, applyCookies } = await createSupabaseRouteHandlerClient();
   const next = request.nextUrl.searchParams.get("next") ?? "/app";
   const env = getPublicEnv();
   const callbackUrl = new URL("/auth/callback", env.siteUrl);
@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
       error?.message ?? "Google prijava trenutno ni na voljo.",
     );
 
-    return NextResponse.redirect(errorUrl);
+    return applyCookies(NextResponse.redirect(errorUrl, { status: 303 }));
   }
 
-  return NextResponse.redirect(data.url);
+  return applyCookies(NextResponse.redirect(data.url, { status: 303 }));
 }

@@ -63,7 +63,8 @@ export default async function AppHomePage() {
           </p>
           <a
             href="/app/new"
-            className="mt-8 inline-flex rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
+            className="mt-8 inline-flex rounded-full border border-blue-500 bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:border-blue-600 hover:bg-blue-700"
+            style={{ color: "#ffffff" }}
           >
             Ustvari prvo predavanje
           </a>

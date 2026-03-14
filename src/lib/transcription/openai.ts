@@ -24,19 +24,30 @@ function fallbackSegments(text: string, durationSeconds: number): TranscriptResu
   }));
 }
 
+const DIARIZATION_MODEL = "gpt-4o-transcribe-diarize";
+
+function resolveTranscriptionModel(configuredModel: string) {
+  return configuredModel.includes("diarize") ? configuredModel : DIARIZATION_MODEL;
+}
+
 export class OpenAiTranscriptionProvider implements TranscriptionProvider {
   async transcribe(input: {
     file: File;
     languageHint: string | null;
+    durationSeconds?: number | null;
   }): Promise<TranscriptResult> {
     const openai = getOpenAiClient();
     const env = getServerEnv();
+    const model = resolveTranscriptionModel(env.OPENAI_TRANSCRIPTION_MODEL);
 
     const transcription = (await openai.audio.transcriptions.create({
       file: input.file,
-      model: env.OPENAI_TRANSCRIPTION_MODEL,
+      model,
       language: input.languageHint ?? "sl",
       response_format: "diarized_json",
+      ...(input.durationSeconds && input.durationSeconds > 30
+        ? { chunking_strategy: "auto" as const }
+        : {}),
     })) as TranscriptionDiarized;
 
     const segments =

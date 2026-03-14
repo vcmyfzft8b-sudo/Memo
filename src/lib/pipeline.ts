@@ -12,6 +12,7 @@ import type {
 } from "@/lib/types";
 import { buildTranscriptWindows } from "@/lib/chunking";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { normalizeMimeType } from "@/lib/storage";
 import { serializeVector } from "@/lib/utils";
 import { OpenAiTranscriptionProvider } from "@/lib/transcription/openai";
 import { getOpenAiClient } from "@/lib/ai/openai";
@@ -54,6 +55,7 @@ async function generateNotesFromTranscript(
     windows.map((window, index) =>
       generateStructuredObject({
         schema: chunkSummarySchema,
+        schemaName: "chunk_summary",
         instructions:
           "You create accurate Slovene study notes from lecture transcripts. Preserve English technical terms when they appear in the source. Never invent missing facts.",
         input: `Lecture chunk ${index + 1}.\nTime range: ${window.startMs}-${window.endMs} ms.\nTranscript:\n${window.text}`,
@@ -63,6 +65,7 @@ async function generateNotesFromTranscript(
 
   return generateStructuredObject({
     schema: noteArtifactSchema,
+    schemaName: "note_artifact",
     instructions:
       "You are preparing final lecture notes for a student in Slovenia. Write in Slovene, preserve English technical terms when they are part of the lecture, and ground every point in the supplied chunk summaries only. The markdown notes should use headings, bullet points, and concise explanations.",
     input: JSON.stringify(
@@ -124,13 +127,18 @@ export async function runLecturePipeline(params: { lectureId: string }) {
       throw downloadError;
     }
 
-    const file = new File([audioBlob], lectureRow.storage_path.split("/").pop() ?? "lecture.webm", {
-      type: audioBlob.type || "audio/webm",
-    });
+    const file = new File(
+      [audioBlob],
+      lectureRow.storage_path.split("/").pop() ?? "lecture.webm",
+      {
+        type: normalizeMimeType(audioBlob.type || "audio/webm"),
+      },
+    );
 
     const transcript = await transcriptionProvider.transcribe({
       file,
       languageHint: lectureRow.language_hint,
+      durationSeconds: lectureRow.duration_seconds,
     });
 
     const embeddings = await createEmbeddings(
@@ -275,6 +283,7 @@ export async function answerLectureChat(params: {
 
   const answer = await generateStructuredObject({
     schema: chatAnswerSchema,
+    schemaName: "chat_answer",
     instructions:
       "Answer the student in Slovene. Use only the supplied lecture context. If the answer is not fully supported, say that the lecture does not clearly state it. Cite only transcript chunks that are genuinely relevant.",
     input: JSON.stringify(

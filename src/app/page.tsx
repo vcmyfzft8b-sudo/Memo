@@ -22,7 +22,8 @@ export default async function HomePage() {
           </Link>
           <Link
             href="/auth/login?next=/app"
-            className="inline-flex items-center gap-2 rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
+            className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-5 py-3 text-sm font-semibold !text-white no-underline shadow-[0_12px_30px_rgba(29,78,216,0.28)] transition hover:bg-blue-600"
+            style={{ color: "#ffffff" }}
           >
             Prijava z Google
             <ArrowRight className="h-4 w-4" />
@@ -46,7 +47,8 @@ export default async function HomePage() {
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
                 href="/auth/login?next=/app"
-                className="inline-flex items-center gap-2 rounded-full bg-stone-950 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-stone-800"
+                className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-6 py-3.5 text-sm font-semibold !text-white no-underline shadow-[0_12px_30px_rgba(29,78,216,0.28)] transition hover:bg-blue-600"
+                style={{ color: "#ffffff" }}
               >
                 Začni z Google prijavo
                 <ArrowRight className="h-4 w-4" />

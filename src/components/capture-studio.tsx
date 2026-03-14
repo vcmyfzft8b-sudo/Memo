@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS, STORAGE_BUCKET } from "@/lib/constants";
+import { getExtensionForMimeType, normalizeMimeType } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn, formatTimestamp } from "@/lib/utils";
 
@@ -79,13 +80,17 @@ export function CaptureStudio() {
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [recordingSupported, setRecordingSupported] = useState<boolean | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [stage, setStage] = useState<
     "idle" | "creating" | "uploading" | "finalizing"
   >("idle");
 
-  const recordingSupported = typeof window !== "undefined" && "MediaRecorder" in window;
   const recordingMimeType = useMemo(() => pickRecorderMimeType(), []);
+
+  useEffect(() => {
+    setRecordingSupported(typeof window !== "undefined" && "MediaRecorder" in window);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -181,9 +186,13 @@ export function CaptureStudio() {
         const blob = new Blob(chunksRef.current, {
           type: recorder.mimeType || "audio/webm",
         });
+        const normalizedMimeType = normalizeMimeType(
+          recorder.mimeType || blob.type || "audio/webm",
+        );
+        const extension = getExtensionForMimeType(normalizedMimeType);
 
-        const file = new File([blob], `lecture-${Date.now()}.webm`, {
-          type: blob.type,
+        const file = new File([blob], `lecture-${Date.now()}.${extension}`, {
+          type: normalizedMimeType,
         });
 
         const previewUrl = URL.createObjectURL(blob);
@@ -244,6 +253,8 @@ export function CaptureStudio() {
     }
 
     try {
+      const normalizedMimeType = normalizeMimeType(source.file.type || "audio/webm");
+
       setIsUploading(true);
       setStage("creating");
       setError(null);
@@ -254,7 +265,7 @@ export function CaptureStudio() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          mimeType: source.file.type || "audio/webm",
+          mimeType: normalizedMimeType,
           size: source.file.size,
           durationSeconds: Math.max(source.durationSeconds, 1),
           languageHint: "sl",
@@ -272,7 +283,7 @@ export function CaptureStudio() {
       const uploadResult = await supabase.storage
         .from(STORAGE_BUCKET)
         .uploadToSignedUrl(createData.path, createData.token, source.file, {
-          contentType: source.file.type || "audio/webm",
+          contentType: normalizedMimeType,
           upsert: true,
         });
 
@@ -358,7 +369,7 @@ export function CaptureStudio() {
             )}
           >
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-stone-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-white">
+              <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-blue-800">
                 Snemanje
               </span>
               {isRecording ? (
@@ -404,7 +415,7 @@ export function CaptureStudio() {
           </label>
         </div>
 
-        {!recordingSupported && (
+        {recordingSupported === false && (
           <p className="mt-4 text-sm text-amber-800">
             Ta brskalnik ne podpira `MediaRecorder`. Nalaganje datotek še vedno
             deluje.
@@ -456,7 +467,8 @@ export function CaptureStudio() {
           type="button"
           onClick={handleSubmit}
           disabled={!source || !consent || isUploading}
-          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-stone-950 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-blue-500 bg-blue-600 px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:border-blue-600 hover:bg-blue-700 disabled:cursor-not-allowed disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-400 disabled:shadow-none"
+          style={{ color: isUploading || !source || !consent ? undefined : "#ffffff" }}
         >
           {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {stage === "creating" && "Ustvarjam predavanje"}

@@ -1,24 +1,35 @@
 import "server-only";
 
+import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
 import { getOpenAiClient } from "@/lib/ai/openai";
 import { getServerEnv } from "@/lib/server-env";
-import { safeJsonParse } from "@/lib/utils";
 
 export async function generateStructuredObject<TSchema extends z.ZodTypeAny>(params: {
   schema: TSchema;
+  schemaName?: string;
   instructions: string;
   input: string;
 }) {
   const env = getServerEnv();
   const openai = getOpenAiClient();
 
-  const response = await openai.responses.create({
+  const response = await openai.responses.parse({
     model: env.OPENAI_TEXT_MODEL,
-    instructions: `${params.instructions}\n\nReturn valid JSON only. Do not wrap the JSON in markdown.`,
+    instructions: params.instructions,
     input: params.input,
+    text: {
+      format: zodTextFormat(
+        params.schema,
+        params.schemaName ?? "structured_output",
+      ),
+    },
   });
 
-  return params.schema.parse(safeJsonParse(response.output_text));
+  if (!response.output_parsed) {
+    throw new Error("Model did not return structured output.");
+  }
+
+  return params.schema.parse(response.output_parsed);
 }

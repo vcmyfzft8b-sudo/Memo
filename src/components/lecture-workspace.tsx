@@ -195,7 +195,8 @@ export function LectureWorkspace({
                 type="button"
                 onClick={handleRetry}
                 disabled={isRetrying}
-                className="inline-flex items-center gap-2 rounded-full bg-stone-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-800"
+                className="inline-flex items-center gap-2 rounded-full border border-blue-500 bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:border-blue-600 hover:bg-blue-700"
+                style={{ color: "#ffffff" }}
               >
                 {isRetrying ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -375,7 +376,8 @@ export function LectureWorkspace({
               <button
                 type="submit"
                 disabled={detail.lecture.status !== "ready" || isSending}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-stone-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-blue-500 bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:border-blue-600 hover:bg-blue-700 disabled:cursor-not-allowed disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-400 disabled:shadow-none"
+                style={{ color: detail.lecture.status !== "ready" || isSending ? undefined : "#ffffff" }}
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

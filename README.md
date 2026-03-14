@@ -42,6 +42,7 @@ cp .env.example .env.local
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
+- `OPENAI_TRANSCRIPTION_MODEL` default `gpt-4o-transcribe-diarize` for timestamped speaker segments
 - `INNGEST_EVENT_KEY` optional for local fallback-free background jobs
 - `INNGEST_SIGNING_KEY` optional for local callback verification
 

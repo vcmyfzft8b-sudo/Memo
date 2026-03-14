@@ -8,12 +8,11 @@ export const SUPPORTED_AUDIO_MIME_TYPES = [
   "audio/mp3",
   "audio/mp4",
   "audio/m4a",
+  "audio/x-m4a",
   "audio/aac",
   "audio/wav",
   "audio/webm",
-  "audio/webm;codecs=opus",
   "audio/ogg",
-  "audio/ogg;codecs=opus",
 ] as const;
 
 export const LECTURE_STATUS = [

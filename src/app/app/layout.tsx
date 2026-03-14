@@ -24,7 +24,8 @@ export default async function AppLayout({
           <div className="flex flex-wrap gap-3">
             <a
               href="/app/new"
-              className="inline-flex items-center gap-2 rounded-full bg-stone-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-800"
+              className="inline-flex items-center gap-2 rounded-full border border-blue-500 bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(37,99,235,0.18)] transition hover:border-blue-600 hover:bg-blue-700"
+              style={{ color: "#ffffff" }}
             >
               <Plus className="h-4 w-4" />
               Novo predavanje

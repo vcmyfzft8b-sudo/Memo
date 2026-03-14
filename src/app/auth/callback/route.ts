@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getPublicEnv } from "@/lib/public-env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -12,14 +12,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth/error?message=Manjka+prijavna+koda.", env.siteUrl));
   }
 
-  const supabase = await createSupabaseServerClient();
+  const { supabase, applyCookies } = await createSupabaseRouteHandlerClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
     const errorUrl = new URL("/auth/error", env.siteUrl);
     errorUrl.searchParams.set("message", error.message);
-    return NextResponse.redirect(errorUrl);
+    return applyCookies(NextResponse.redirect(errorUrl, { status: 303 }));
   }
 
-  return NextResponse.redirect(new URL(next, env.siteUrl));
+  return applyCookies(NextResponse.redirect(new URL(next, env.siteUrl), { status: 303 }));
 }
