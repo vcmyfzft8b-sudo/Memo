@@ -1,0 +1,8 @@
+import type { TranscriptResult } from "@/lib/types";
+
+export interface TranscriptionProvider {
+  transcribe(input: {
+    file: File;
+    languageHint: string | null;
+  }): Promise<TranscriptResult>;
+}

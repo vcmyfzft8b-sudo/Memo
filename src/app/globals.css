@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6efe5;
+  --foreground: #20191a;
+  --muted: #6f6460;
+  --panel: rgba(255, 252, 247, 0.88);
+  --line: rgba(66, 53, 50, 0.12);
+  --brand: #0f3ad9;
+  --brand-soft: #d9e3ff;
+  --accent: #e18c42;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(225, 140, 66, 0.2), transparent 30%),
+    radial-gradient(circle at top right, rgba(15, 58, 217, 0.18), transparent 30%),
+    linear-gradient(180deg, #fbf6ef 0%, #f3eadf 100%);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.markdown {
+  color: #2d2524;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-family: var(--font-serif), serif;
+  letter-spacing: -0.03em;
+}
+
+.markdown h1 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.8rem;
+}
+
+.markdown h2 {
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.35rem;
+}
+
+.markdown h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.35rem;
+  font-size: 1.1rem;
+}
+
+.markdown p,
+.markdown li {
+  line-height: 1.75;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.25rem;
+}
+
+.markdown code {
+  border-radius: 0.4rem;
+  background: rgba(15, 58, 217, 0.08);
+  padding: 0.1rem 0.35rem;
+}

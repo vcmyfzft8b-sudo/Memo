@@ -1,0 +1,197 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export type LectureStatus =
+  | "uploading"
+  | "queued"
+  | "transcribing"
+  | "generating_notes"
+  | "ready"
+  | "failed";
+
+export interface Citation {
+  idx: number;
+  startMs: number;
+  endMs: number;
+  quote: string;
+}
+
+export type Database = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          email: string | null;
+          full_name: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          email?: string | null;
+          full_name?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          email?: string | null;
+          full_name?: string | null;
+          created_at?: string;
+        };
+      };
+      lectures: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string | null;
+          source_type: string;
+          storage_path: string | null;
+          duration_seconds: number | null;
+          status: LectureStatus;
+          language_hint: string | null;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title?: string | null;
+          source_type: string;
+          storage_path?: string | null;
+          duration_seconds?: number | null;
+          status?: LectureStatus;
+          language_hint?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string | null;
+          source_type?: string;
+          storage_path?: string | null;
+          duration_seconds?: number | null;
+          status?: LectureStatus;
+          language_hint?: string | null;
+          error_message?: string | null;
+          updated_at?: string;
+        };
+      };
+      transcript_segments: {
+        Row: {
+          id: string;
+          lecture_id: string;
+          idx: number;
+          start_ms: number;
+          end_ms: number;
+          speaker_label: string | null;
+          text: string;
+          embedding: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lecture_id: string;
+          idx: number;
+          start_ms: number;
+          end_ms: number;
+          speaker_label?: string | null;
+          text: string;
+          embedding?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          idx?: number;
+          start_ms?: number;
+          end_ms?: number;
+          speaker_label?: string | null;
+          text?: string;
+          embedding?: string | null;
+        };
+      };
+      lecture_artifacts: {
+        Row: {
+          lecture_id: string;
+          summary: string;
+          key_topics: string[];
+          structured_notes_md: string;
+          model_metadata: Json;
+          generated_at: string;
+        };
+        Insert: {
+          lecture_id: string;
+          summary: string;
+          key_topics: string[];
+          structured_notes_md: string;
+          model_metadata?: Json;
+          generated_at?: string;
+        };
+        Update: {
+          summary?: string;
+          key_topics?: string[];
+          structured_notes_md?: string;
+          model_metadata?: Json;
+          generated_at?: string;
+        };
+      };
+      chat_messages: {
+        Row: {
+          id: string;
+          lecture_id: string;
+          user_id: string;
+          role: "user" | "assistant";
+          content: string;
+          citations_json: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lecture_id: string;
+          user_id: string;
+          role: "user" | "assistant";
+          content: string;
+          citations_json?: Json;
+          created_at?: string;
+        };
+        Update: {
+          content?: string;
+          citations_json?: Json;
+        };
+      };
+    };
+    Views: Record<string, never>;
+    Functions: {
+      match_transcript_segments: {
+        Args: {
+          filter_lecture_id: string;
+          match_count: number;
+          query_embedding: string;
+        };
+        Returns: {
+          id: string;
+          lecture_id: string;
+          idx: number;
+          start_ms: number;
+          end_ms: number;
+          speaker_label: string | null;
+          text: string;
+          similarity: number;
+        }[];
+      };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
+
+export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+export type LectureRow = Database["public"]["Tables"]["lectures"]["Row"];
+export type TranscriptSegmentRow =
+  Database["public"]["Tables"]["transcript_segments"]["Row"];
+export type LectureArtifactRow =
+  Database["public"]["Tables"]["lecture_artifacts"]["Row"];
+export type ChatMessageRow = Database["public"]["Tables"]["chat_messages"]["Row"];
