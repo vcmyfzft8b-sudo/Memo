@@ -580,9 +580,14 @@ export function NoteSourceModal({
   return (
     <>
       <div className="ios-sheet-backdrop" onClick={requestClose} aria-hidden="true" />
-      <div className="ios-sheet-wrap" role="dialog" aria-modal="true" aria-label="New note">
-        <div className="ios-sheet-stack">
-          <section className="ios-sheet note-source-sheet">
+      <div
+        className="ios-sheet-wrap note-source-modal-wrap"
+        role="dialog"
+        aria-modal="true"
+        aria-label="New note"
+      >
+        <div className="ios-sheet-stack note-source-modal-stack">
+          <section className="ios-sheet note-source-sheet note-source-modal">
             <div className="ios-sheet-header note-source-header">
               <h2 className="ios-sheet-title">
                 {sheetTitle(selectedMode)}
@@ -591,7 +596,7 @@ export function NoteSourceModal({
                 type="button"
                 onClick={requestClose}
                 disabled={Boolean(busyLabel)}
-                className="ios-close-button ios-sheet-header-close"
+                className="app-close-button ios-sheet-header-close"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
@@ -613,7 +618,7 @@ export function NoteSourceModal({
               ))}
             </div>
 
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-4 note-source-modal-body">
               <div>
                 <label className="note-source-field-label">
                   Language
