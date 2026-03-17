@@ -1,4 +1,4 @@
-# Skripta AI MVP
+# Syllo AI MVP
 
 Slovene-first lecture notes MVP built with `Next.js`, `Supabase`, `Inngest`, and `OpenAI`.
 
