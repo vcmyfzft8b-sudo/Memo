@@ -539,7 +539,6 @@ export async function createLectureFromTextSource(params: {
           model_metadata: {
             ...notes.modelMetadata,
             ...params.modelMetadata,
-            studyOutline: notes.studyOutline,
           },
         } as never,
         {

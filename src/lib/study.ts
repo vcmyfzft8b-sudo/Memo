@@ -11,9 +11,10 @@ import type {
   TranscriptSegmentRow,
 } from "@/lib/database.types";
 import { countWords } from "@/lib/note-generation";
+import { createCoveragePlan } from "@/lib/study-coverage";
 import { generateCoverageCards, repairCoverageCards } from "@/lib/study-cards";
-import { buildNoteStudyMaterials } from "@/lib/study-note-units";
 import type { CoverageCardDraft, CoverageUnitPlan, SourceUnit, StudySectionDraft } from "@/lib/study-models";
+import { buildSourceUnits } from "@/lib/study-source-units";
 import { validateCoverage } from "@/lib/study-validation";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
@@ -414,8 +415,8 @@ export async function generateLectureFlashcards(params: { lectureId: string }) {
     lectureId: params.lectureId,
     status: "generating",
     modelMetadata: {
-      stage: "building_note_units",
-      pipeline: "flashcards-v5-notes",
+      stage: "building_sections",
+      pipeline: "flashcards-v4",
       storageMode: storage.mode,
     },
   });
@@ -465,25 +466,27 @@ export async function generateLectureFlashcards(params: { lectureId: string }) {
       throw new Error("The lecture transcript is empty.");
     }
 
-    const { units, sections, plans: plannedCoverage, outlineSource, notePointCount } =
-      await buildNoteStudyMaterials({
-        lecture: lectureRow,
-        artifact: artifactRow,
-        transcript: transcriptRows,
-      });
+    const { units, sections } = buildSourceUnits({
+      lecture: lectureRow,
+      transcript: transcriptRows,
+    });
 
     await setStudyAssetStatus({
       lectureId: params.lectureId,
       status: "generating",
       modelMetadata: {
-        stage: "planning_note_cards",
-        pipeline: "flashcards-v5-notes",
+        stage: "planning_coverage",
+        pipeline: "flashcards-v4",
         storageMode: storage.mode,
-        outlineSource,
         sourceUnitCount: units.length,
         sectionCount: sections.length,
-        notePointCount,
       },
+    });
+    const plannedCoverage = await createCoveragePlan({
+      title: lectureRow.title,
+      summary: artifactRow.summary,
+      keyTopics: artifactRow.key_topics,
+      units,
     });
     const planByUnit = new Map(plannedCoverage.map((plan) => [plan.unitIndex, plan]));
     const effectiveUnits = units.map((unit) => ({
@@ -496,9 +499,8 @@ export async function generateLectureFlashcards(params: { lectureId: string }) {
       status: "generating",
       modelMetadata: {
         stage: "generating_cards",
-        pipeline: "flashcards-v5-notes",
+        pipeline: "flashcards-v4",
         storageMode: storage.mode,
-        outlineSource,
         sourceUnitCount: effectiveUnits.length,
         sectionCount: sections.length,
         plannedConceptCount: plannedCoverage.reduce((total, plan) => total + plan.concepts.length, 0),
@@ -534,9 +536,8 @@ export async function generateLectureFlashcards(params: { lectureId: string }) {
         status: "generating",
         modelMetadata: {
           stage: "repairing_coverage",
-          pipeline: "flashcards-v5-notes",
+          pipeline: "flashcards-v4",
           storageMode: storage.mode,
-          outlineSource,
           repairPass: repairPass + 1,
           uncoveredUnitIndexes: validation.uncoveredUnitIndexes,
           failedConceptKeys: validation.failedConceptKeys,
@@ -587,9 +588,8 @@ export async function generateLectureFlashcards(params: { lectureId: string }) {
       status: "generating",
       modelMetadata: {
         stage: "publishing_deck",
-        pipeline: "flashcards-v5-notes",
+        pipeline: "flashcards-v4",
         storageMode: storage.mode,
-        outlineSource,
         coverageRatio: acceptedValidation.coverageRatio,
         criticalCoverageRatio: acceptedValidation.criticalCoverageRatio,
         generatedCardCount: generatedCards.length,
@@ -692,12 +692,10 @@ export async function generateLectureFlashcards(params: { lectureId: string }) {
       status: "ready",
       modelMetadata: {
         stage: "ready",
-        pipeline: "flashcards-v5-notes",
+        pipeline: "flashcards-v4",
         storageMode: storage.mode,
-        outlineSource,
         sourceUnitCount: effectiveUnits.length,
         sectionCount: sections.length,
-        notePointCount,
         plannedConceptCount: plannedCoverage.reduce((total, plan) => total + plan.concepts.length, 0),
         generatedCardCount: generatedCards.length,
         acceptedCardCount: acceptedCards.length,
@@ -727,7 +725,7 @@ export async function generateLectureFlashcards(params: { lectureId: string }) {
       status: "failed",
       errorMessage: toErrorMessage(error),
       modelMetadata: {
-        pipeline: "flashcards-v5-notes",
+        pipeline: "flashcards-v4",
         stage: "failed",
       },
     });
