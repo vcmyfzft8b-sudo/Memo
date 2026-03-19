@@ -4,30 +4,20 @@ import { getAuthProviderAvailability } from "@/lib/auth-providers";
 import { getPublicEnv } from "@/lib/public-env";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
-function getNextPath(request: NextRequest, value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !value.startsWith("/")) {
-    return "/app";
+function resolveNextPath(request: NextRequest, value?: FormDataEntryValue | null) {
+  if (typeof value === "string" && value.startsWith("/")) {
+    return value;
   }
 
-  return value;
-}
-
-export async function GET(request: NextRequest) {
-  const loginUrl = request.nextUrl.clone();
-  loginUrl.pathname = "/auth/login";
-  loginUrl.search = "";
-
-  const next = request.nextUrl.searchParams.get("next");
-  if (next?.startsWith("/")) {
-    loginUrl.searchParams.set("next", next);
+  const searchNext = request.nextUrl.searchParams.get("next");
+  if (searchNext?.startsWith("/")) {
+    return searchNext;
   }
 
-  return NextResponse.redirect(loginUrl, { status: 303 });
+  return "/app";
 }
 
-export async function POST(request: NextRequest) {
-  const formData = await request.formData();
-  const next = getNextPath(request, formData.get("next"));
+async function startAppleAuth(request: NextRequest, next: string) {
   const providers = await getAuthProviderAvailability();
 
   if (!providers.apple) {
@@ -67,4 +57,13 @@ export async function POST(request: NextRequest) {
   }
 
   return applyCookies(NextResponse.redirect(data.url, { status: 303 }));
+}
+
+export async function GET(request: NextRequest) {
+  return startAppleAuth(request, resolveNextPath(request));
+}
+
+export async function POST(request: NextRequest) {
+  const formData = await request.formData();
+  return startAppleAuth(request, resolveNextPath(request, formData.get("next")));
 }

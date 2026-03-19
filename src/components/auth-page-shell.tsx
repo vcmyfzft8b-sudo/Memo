@@ -42,19 +42,15 @@ function AppleMark() {
 }
 
 function AuthProviderButton(props: {
-  action: string;
+  href: string;
   label: string;
-  next: string;
   mark: ReactNode;
 }) {
   return (
-    <form action={props.action} method="post" className="auth-provider-form">
-      <input type="hidden" name="next" value={props.next} />
-      <button type="submit" className="auth-provider-button">
-        {props.mark}
-        <span>{props.label}</span>
-      </button>
-    </form>
+    <a href={props.href} className="auth-provider-button">
+      {props.mark}
+      <span>{props.label}</span>
+    </a>
   );
 }
 
@@ -103,17 +99,15 @@ export async function AuthPageShell(props: {
             <div className="auth-provider-stack">
               {providers.apple ? (
                 <AuthProviderButton
-                  action="/auth/apple"
+                  href={`/auth/apple?next=${encodeURIComponent(props.next)}`}
                   label={appleLabel}
-                  next={props.next}
                   mark={<AppleMark />}
                 />
               ) : null}
               {providers.google ? (
                 <AuthProviderButton
-                  action="/auth/google"
+                  href={`/auth/google?next=${encodeURIComponent(props.next)}`}
                   label={googleLabel}
-                  next={props.next}
                   mark={<GoogleMark />}
                 />
               ) : null}
