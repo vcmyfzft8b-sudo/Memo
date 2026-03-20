@@ -370,10 +370,6 @@ export function LectureWorkspace({
     activeStudyView === "flashcards" ? detail.studyAsset?.status : detail.quizAsset?.status;
   const activeMaterialStageCopy =
     activeStudyView === "flashcards" ? studyStageCopy : quizStageCopy;
-  const hasActiveMaterial =
-    activeStudyView === "flashcards" ? studyDeck.length > 0 : detail.quizQuestions.length > 0;
-  const isActiveMaterialBusy =
-    activeStudyView === "flashcards" ? isRegeneratingStudy : isRegeneratingQuiz;
 
   async function handleRetry() {
     setIsRetrying(true);
@@ -686,24 +682,6 @@ export function LectureWorkspace({
                     </span>
                     <span className="lecture-study-meta-copy">{activeMaterialStageCopy}</span>
                   </div>
-                ) : null}
-              </div>
-
-              <div className="lecture-study-header-actions">
-                {hasActiveMaterial && activeStudyView === "quiz" ? (
-                  <button
-                    type="button"
-                    onClick={() => void handleQuizCreate()}
-                    disabled={detail.lecture.status !== "ready" || isActiveMaterialBusy}
-                    className="lecture-study-refresh"
-                  >
-                    {isActiveMaterialBusy ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCcw className="h-4 w-4" />
-                    )}
-                    Regenerate quiz
-                  </button>
                 ) : null}
               </div>
             </div>

@@ -2,11 +2,21 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { FlashcardDifficulty, LectureArtifactRow, LectureQuizAssetRow, LectureRow } from "@/lib/database.types";
+import type {
+  FlashcardDifficulty,
+  LectureArtifactRow,
+  LectureQuizAssetRow,
+  LectureRow,
+  TranscriptSegmentRow,
+} from "@/lib/database.types";
 import { generateStructuredObject } from "@/lib/ai/json";
 import { buildGeneratedContentLanguageInstruction } from "@/lib/languages";
-import { countWords } from "@/lib/note-generation";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { createCoveragePlan } from "@/lib/study-coverage";
+import type { CoverageConcept, CoverageUnitPlan, SourceUnit } from "@/lib/study-models";
+import { buildSourceUnits } from "@/lib/study-source-units";
+
+const QUIZ_CONCURRENCY = 4;
 
 type PostgrestLikeError = {
   code?: string;
@@ -15,20 +25,35 @@ type PostgrestLikeError = {
   hint?: string | null;
 };
 
+type QuizStorageMode = "tables" | "artifact_metadata";
+
+type QuizStorageCapabilities = {
+  mode: QuizStorageMode;
+};
+
+type QuizQuestionDraft = {
+  prompt: string;
+  options: string[];
+  correctOptionIndex: number;
+  explanation: string;
+  difficulty: FlashcardDifficulty;
+  conceptKey: string;
+  sourceUnitIdx: number;
+  sourceLocator: string | null;
+};
+
 const quizQuestionSchema = z.object({
   prompt: z.string().min(12).max(220),
   options: z.array(z.string().min(2).max(180)).length(4),
   correctOptionIndex: z.number().int().min(0).max(3),
   explanation: z.string().min(20).max(260),
   difficulty: z.enum(["easy", "medium", "hard"]),
-  sourceLocator: z.string().min(2).max(120).nullable(),
+  conceptKey: z.string().min(3).max(80),
 });
 
-function createQuizDeckSchema(questionCount: number) {
-  return z.object({
-    questions: z.array(quizQuestionSchema).length(questionCount),
-  });
-}
+const quizQuestionBatchSchema = z.object({
+  questions: z.array(quizQuestionSchema).min(1).max(24),
+});
 
 function toErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -51,12 +76,6 @@ function toErrorMessage(error: unknown) {
 
   return "Unknown quiz generation error.";
 }
-
-type QuizStorageMode = "tables" | "artifact_metadata";
-
-type QuizStorageCapabilities = {
-  mode: QuizStorageMode;
-};
 
 function getSchemaErrorText(error: unknown) {
   if (!error || typeof error !== "object") {
@@ -229,8 +248,225 @@ export async function queueLectureQuizGeneration(lectureId: string) {
   });
 }
 
-function buildQuizQuestionCount(noteWordCount: number) {
-  return Math.max(6, Math.min(12, Math.round(noteWordCount / 220)));
+function countTargetQuestions(concepts: CoverageConcept[]) {
+  return concepts.reduce(
+    (total, concept) => total + Math.min(Math.max(concept.recommendedCardCount, 1), 2),
+    0,
+  );
+}
+
+function dedupeQuizQuestions(questions: QuizQuestionDraft[]) {
+  const seen = new Set<string>();
+  const output: QuizQuestionDraft[] = [];
+
+  for (const question of questions) {
+    const key = `${question.conceptKey}::${question.prompt.toLowerCase()}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    output.push(question);
+  }
+
+  return output;
+}
+
+async function mapWithConcurrency<TInput, TOutput>(
+  values: TInput[],
+  concurrency: number,
+  mapper: (value: TInput, index: number) => Promise<TOutput>,
+) {
+  const results = new Array<TOutput>(values.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    while (nextIndex < values.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(values[currentIndex], currentIndex);
+    }
+  });
+
+  await Promise.all(workers);
+
+  return results;
+}
+
+async function generateQuestionsForUnit(params: {
+  title: string | null;
+  summary: string;
+  keyTopics: string[];
+  unit: SourceUnit;
+  concepts: CoverageConcept[];
+  contextUnits: SourceUnit[];
+  outputLanguage?: string | null;
+  repairOnly?: boolean;
+}) {
+  const targetCount = countTargetQuestions(params.concepts);
+  const languageInstruction = buildGeneratedContentLanguageInstruction(params.outputLanguage);
+
+  const batch = await generateStructuredObject({
+    schema: quizQuestionBatchSchema,
+    schemaName: `quiz_questions_unit_${params.unit.unitIndex}`,
+    maxOutputTokens: Math.max(2200, targetCount * 520),
+    instructions: `${languageInstruction}
+${params.repairOnly ? "Repair missing quiz coverage." : "Generate source-grounded multiple-choice quiz questions."}
+Use only the supplied source material.
+Cover every requested concept explicitly.
+Return ${targetCount} total questions for this unit.
+For each concept, create as many questions as its recommendedCardCount, capped at 2.
+When a concept requests 2 questions, make them materially different and test different angles of understanding.
+Every question must have exactly 4 answer options and exactly 1 correct answer.
+Avoid "all of the above", "none of the above", trick phrasing, and ambiguous distractors.
+Keep questions concise, testable, and grounded in the source.
+Use the provided conceptKey exactly.
+Do not invent facts, terms, or examples that are not supported by the source.`,
+    input: JSON.stringify(
+      {
+        title: params.title,
+        summary: params.summary,
+        keyTopics: params.keyTopics,
+        repairOnly: Boolean(params.repairOnly),
+        unit: {
+          unitIndex: params.unit.unitIndex,
+          sectionTitle: params.unit.sectionTitle,
+          locatorLabel: params.unit.locatorLabel,
+          sourceType: params.unit.sourceType,
+          text: params.unit.text,
+        },
+        concepts: params.concepts.map((concept) => ({
+          ...concept,
+          recommendedQuestionCount: Math.min(Math.max(concept.recommendedCardCount, 1), 2),
+        })),
+        contextUnits: params.contextUnits.map((unit) => ({
+          unitIndex: unit.unitIndex,
+          locatorLabel: unit.locatorLabel,
+          text: unit.text,
+        })),
+      },
+      null,
+      2,
+    ),
+  });
+
+  return dedupeQuizQuestions(
+    batch.questions.map((question) => ({
+      prompt: question.prompt.trim(),
+      options: question.options.map((option) => option.trim()),
+      correctOptionIndex: question.correctOptionIndex,
+      explanation: question.explanation.trim(),
+      difficulty: question.difficulty,
+      conceptKey: question.conceptKey,
+      sourceUnitIdx: params.unit.unitIndex,
+      sourceLocator: params.unit.locatorLabel,
+    })),
+  );
+}
+
+function findMissingConcepts(params: {
+  plans: CoverageUnitPlan[];
+  questions: QuizQuestionDraft[];
+}) {
+  const questionCountsByConcept = new Map<string, number>();
+
+  for (const question of params.questions) {
+    questionCountsByConcept.set(
+      question.conceptKey,
+      (questionCountsByConcept.get(question.conceptKey) ?? 0) + 1,
+    );
+  }
+
+  const missingConceptsByUnit = new Map<number, CoverageConcept[]>();
+
+  for (const plan of params.plans) {
+    const missingConcepts = plan.concepts.filter((concept) => {
+      const targetCount = Math.min(Math.max(concept.recommendedCardCount, 1), 2);
+      return (questionCountsByConcept.get(concept.conceptKey) ?? 0) < targetCount;
+    });
+
+    if (missingConcepts.length > 0) {
+      missingConceptsByUnit.set(plan.unitIndex, missingConcepts);
+    }
+  }
+
+  return missingConceptsByUnit;
+}
+
+async function generateCoverageQuiz(params: {
+  lecture: LectureRow;
+  artifact: LectureArtifactRow;
+  transcript: TranscriptSegmentRow[];
+}) {
+  const { units } = buildSourceUnits({
+    lecture: params.lecture,
+    transcript: params.transcript,
+  });
+  const plannedCoverage = await createCoveragePlan({
+    title: params.lecture.title,
+    summary: params.artifact.summary,
+    keyTopics: params.artifact.key_topics,
+    units,
+  });
+  const planByUnit = new Map(plannedCoverage.map((plan) => [plan.unitIndex, plan]));
+
+  let generatedQuestions = (
+    await mapWithConcurrency(units, QUIZ_CONCURRENCY, async (unit, index) => {
+      const plan = planByUnit.get(unit.unitIndex);
+      if (!plan || plan.concepts.length === 0) {
+        return [];
+      }
+
+      return generateQuestionsForUnit({
+        title: params.lecture.title,
+        summary: params.artifact.summary,
+        keyTopics: params.artifact.key_topics,
+        unit,
+        concepts: plan.concepts,
+        contextUnits: units.slice(Math.max(0, index - 1), Math.min(units.length, index + 2)),
+        outputLanguage: params.lecture.language_hint,
+      });
+    })
+  ).flat();
+
+  const missingConceptsByUnit = findMissingConcepts({
+    plans: plannedCoverage,
+    questions: generatedQuestions,
+  });
+
+  if (missingConceptsByUnit.size > 0) {
+    const repairedQuestions = (
+      await mapWithConcurrency(
+        [...missingConceptsByUnit.entries()],
+        QUIZ_CONCURRENCY,
+        async ([unitIndex, concepts]) => {
+          const unit = units.find((candidate) => candidate.unitIndex === unitIndex);
+          if (!unit) {
+            return [];
+          }
+
+          return generateQuestionsForUnit({
+            title: params.lecture.title,
+            summary: params.artifact.summary,
+            keyTopics: params.artifact.key_topics,
+            unit,
+            concepts,
+            contextUnits: units.slice(Math.max(0, unitIndex - 1), Math.min(units.length, unitIndex + 2)),
+            outputLanguage: params.lecture.language_hint,
+            repairOnly: true,
+          });
+        },
+      )
+    ).flat();
+
+    generatedQuestions = dedupeQuizQuestions([...generatedQuestions, ...repairedQuestions]);
+  }
+
+  return {
+    units,
+    plannedCoverage,
+    questions: generatedQuestions,
+  };
 }
 
 export async function generateLectureQuiz(params: { lectureId: string }) {
@@ -248,19 +484,27 @@ export async function generateLectureQuiz(params: { lectureId: string }) {
   });
 
   try {
-    const [{ data: lecture, error: lectureError }, { data: artifact, error: artifactError }] =
-      await Promise.all([
-        supabase
-          .from("lectures")
-          .select("*")
-          .eq("id", params.lectureId)
-          .single(),
-        supabase
-          .from("lecture_artifacts")
-          .select("*")
-          .eq("lecture_id", params.lectureId)
-          .single(),
-      ]);
+    const [
+      { data: lecture, error: lectureError },
+      { data: artifact, error: artifactError },
+      { data: transcript, error: transcriptError },
+    ] = await Promise.all([
+      supabase
+        .from("lectures")
+        .select("*")
+        .eq("id", params.lectureId)
+        .single(),
+      supabase
+        .from("lecture_artifacts")
+        .select("*")
+        .eq("lecture_id", params.lectureId)
+        .single(),
+      supabase
+        .from("transcript_segments")
+        .select("*")
+        .eq("lecture_id", params.lectureId)
+        .order("idx", { ascending: true }),
+    ]);
 
     if (lectureError) {
       throw lectureError;
@@ -270,36 +514,28 @@ export async function generateLectureQuiz(params: { lectureId: string }) {
       throw artifactError;
     }
 
+    if (transcriptError) {
+      throw transcriptError;
+    }
+
     const lectureRow = lecture as LectureRow;
     const artifactRow = artifact as LectureArtifactRow;
+    const transcriptRows = (transcript ?? []) as TranscriptSegmentRow[];
 
     if (lectureRow.status !== "ready") {
       throw new Error("Quizzes are available after note processing finishes.");
     }
 
-    const noteWordCount = countWords(artifactRow.structured_notes_md);
-    const questionCount = buildQuizQuestionCount(noteWordCount);
-    const languageInstruction = buildGeneratedContentLanguageInstruction(
-      lectureRow.language_hint,
-    );
+    if (transcriptRows.length === 0) {
+      throw new Error("The lecture transcript is empty.");
+    }
 
-    const quizDeck = await generateStructuredObject({
-      schema: createQuizDeckSchema(questionCount),
-      schemaName: "quiz_deck",
-      maxOutputTokens: questionCount * 540,
-      instructions: `${languageInstruction} Create a concise multiple-choice quiz from the supplied lecture notes. Every question must have exactly 4 answer options and exactly 1 correct answer. Keep questions direct, testable, and student-friendly. Spread questions across the material instead of clustering on one topic. Do not invent facts, examples, or terminology that are not supported by the notes. Use short but clear answer options. Explanations should briefly explain why the correct answer is right. Keep the quiz language aligned with the notes language.`,
-      input: JSON.stringify(
-        {
-          title: lectureRow.title,
-          summary: artifactRow.summary,
-          keyTopics: artifactRow.key_topics,
-          structuredNotesMd: artifactRow.structured_notes_md,
-          targetQuestionCount: questionCount,
-        },
-        null,
-        2,
-      ),
+    const coverageQuiz = await generateCoverageQuiz({
+      lecture: lectureRow,
+      artifact: artifactRow,
+      transcript: transcriptRows,
     });
+    const questionCount = coverageQuiz.questions.length;
 
     await setQuizAssetStatus({
       lectureId: params.lectureId,
@@ -308,11 +544,16 @@ export async function generateLectureQuiz(params: { lectureId: string }) {
         stage: "publishing_quiz",
         pipeline: "quiz-v1",
         targetQuestionCount: questionCount,
+        sourceUnitCount: coverageQuiz.units.length,
+        plannedConceptCount: coverageQuiz.plannedCoverage.reduce(
+          (total, plan) => total + plan.concepts.length,
+          0,
+        ),
       },
       storage,
     });
 
-    const questionsToInsert = quizDeck.questions.map((question, index) => {
+    const questionsToInsert = coverageQuiz.questions.map((question, index) => {
       const createdAt = new Date().toISOString();
 
       return {
@@ -324,7 +565,7 @@ export async function generateLectureQuiz(params: { lectureId: string }) {
         options: question.options,
         correct_option_idx: question.correctOptionIndex,
         explanation: question.explanation,
-        difficulty: question.difficulty as FlashcardDifficulty,
+        difficulty: question.difficulty,
         source_locator: question.sourceLocator,
         created_at: createdAt,
       };
@@ -368,7 +609,11 @@ export async function generateLectureQuiz(params: { lectureId: string }) {
           stage: "ready",
           pipeline: "quiz-v1",
           questionCount,
-          noteWordCount,
+          sourceUnitCount: coverageQuiz.units.length,
+          plannedConceptCount: coverageQuiz.plannedCoverage.reduce(
+            (total, plan) => total + plan.concepts.length,
+            0,
+          ),
         },
         questions: questionsToInsert.map((question) => ({
           id: question.id,
@@ -384,7 +629,7 @@ export async function generateLectureQuiz(params: { lectureId: string }) {
       });
     }
 
-    const difficultyCounts = quizDeck.questions.reduce<Record<FlashcardDifficulty, number>>(
+    const difficultyCounts = coverageQuiz.questions.reduce<Record<FlashcardDifficulty, number>>(
       (counts, question) => {
         counts[question.difficulty] += 1;
         return counts;
@@ -403,7 +648,11 @@ export async function generateLectureQuiz(params: { lectureId: string }) {
         stage: "ready",
         pipeline: "quiz-v1",
         questionCount,
-        noteWordCount,
+        sourceUnitCount: coverageQuiz.units.length,
+        plannedConceptCount: coverageQuiz.plannedCoverage.reduce(
+          (total, plan) => total + plan.concepts.length,
+          0,
+        ),
         difficultyCounts,
       },
       storage,
