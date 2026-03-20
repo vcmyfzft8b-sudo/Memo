@@ -700,6 +700,9 @@ export function LectureWorkspace({
 
     if (activeTab === "study") {
       const currentFlashcard = studyDeck.find((flashcard) => flashcard.id === currentReviewFlashcardId) ?? null;
+      const flashcardsCompleted = totalFlashcards > 0 && currentFlashcard === null;
+      const shouldAutoSizeStudyShell =
+        activeStudyView === "quiz" || (activeStudyView === "flashcards" && flashcardsCompleted);
       const currentCyclePosition = cycleCardCount > 0 ? cycleCardCount - reviewQueue.length + 1 : 0;
       const remainingFlashcards = reviewQueue.length + repeatQueue.length;
       const activeMaterialError =
@@ -709,7 +712,9 @@ export function LectureWorkspace({
 
       return (
         <div className="workspace-panel-stack lecture-panel-stack">
-          <div className={`ios-card lecture-study-shell ${activeStudyView === "quiz" ? "quiz-mode" : ""}`}>
+          <div
+            className={`ios-card lecture-study-shell ${shouldAutoSizeStudyShell ? "auto-height" : ""}`}
+          >
             <div className="lecture-study-header">
               <div className="lecture-study-title">
                 <p className="lecture-card-label">Study</p>
