@@ -1,12 +1,12 @@
 import "server-only";
 
 import OpenAI from "openai";
-import type { TranscriptionDiarized } from "openai/resources/audio/transcriptions";
 import type {
-  AudioResponseFormat,
   Transcription,
+  TranscriptionDiarized,
   TranscriptionVerbose,
-} from "openai/resources/audio/audio";
+} from "openai/resources/audio/transcriptions";
+import type { AudioResponseFormat } from "openai/resources/audio/audio";
 
 import { getOpenAiClient } from "@/lib/ai/openai";
 import { getServerEnv } from "@/lib/server-env";
@@ -36,7 +36,8 @@ const SECONDARY_FALLBACK_MODEL = "gpt-4o-mini-transcribe";
 const LAST_RESORT_MODEL = "whisper-1";
 
 function resolveTranscriptionModel(configuredModel: string) {
-  return configuredModel.includes("diarize") ? configuredModel : DIARIZATION_MODEL;
+  const normalized = configuredModel.trim();
+  return normalized.length > 0 ? normalized : DIARIZATION_MODEL;
 }
 
 type TranscriptionAttempt = {
@@ -190,7 +191,7 @@ export class OpenAiTranscriptionProvider implements TranscriptionProvider {
             ? { chunking_strategy: "auto" as const }
             : {}),
           ...(attempt.responseFormat === "verbose_json"
-            ? { timestamp_granularities: ["segment"] as const[] }
+            ? { timestamp_granularities: ["segment"] }
             : {}),
         });
 
