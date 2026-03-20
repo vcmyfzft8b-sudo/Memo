@@ -723,7 +723,6 @@ export function LectureWorkspace({
     if (activeTab === "study") {
       const currentFlashcard = studyDeck.find((flashcard) => flashcard.id === currentReviewFlashcardId) ?? null;
       const currentCyclePosition = cycleCardCount > 0 ? cycleCardCount - reviewQueue.length + 1 : 0;
-      const remainingFlashcards = reviewQueue.length + repeatQueue.length;
       const activeMaterialError =
         activeStudyView === "flashcards"
           ? detail.studyAsset?.error_message
@@ -808,7 +807,6 @@ export function LectureWorkspace({
                   <div className="lecture-flashcard-stage">
                     <div className="lecture-flashcard-stage-meta">
                       <span>Card {currentCyclePosition} / {cycleCardCount}</span>
-                      <span>{remainingFlashcards} left</span>
                       {reviewCycle > 1 ? <span>Cycle {reviewCycle}</span> : null}
                     </div>
 
