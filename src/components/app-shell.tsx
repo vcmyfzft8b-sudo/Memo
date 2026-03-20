@@ -11,6 +11,7 @@ import {
 import { usePathname } from "next/navigation";
 
 import { BrandLogo } from "@/components/brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 
 const TAB_ITEMS = [
   { href: "/app", displayLabel: "Home", icon: House },
@@ -125,7 +126,7 @@ export function AppShell({
       <div className="desktop-main">
         <header className="ios-nav app-topbar">
           <div className="ios-nav-inner app-topbar-inner">
-            <Link href="/app" className="app-topbar-brand" aria-label="Syllo home">
+            <Link href="/app" className="app-topbar-brand" aria-label={`${BRAND_NAME} home`}>
               <BrandLogo compact />
             </Link>
 

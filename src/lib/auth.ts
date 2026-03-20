@@ -24,7 +24,7 @@ export async function requireUser() {
         id: "00000000-0000-4000-8000-000000000001",
         aud: "authenticated",
         role: "authenticated",
-        email: "preview@syllo.app",
+        email: "preview@memo.app",
         app_metadata: {
           provider: "preview",
           providers: ["preview"],

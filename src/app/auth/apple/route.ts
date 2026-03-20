@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthProviderAvailability } from "@/lib/auth-providers";
+import { BRAND_NAME } from "@/lib/brand";
 import { getPublicEnv } from "@/lib/public-env";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
@@ -26,7 +27,7 @@ async function startAppleAuth(request: NextRequest, next: string) {
     errorUrl.search = "";
     errorUrl.searchParams.set(
       "message",
-      "Apple sign-in is not enabled for this Syllo project yet.",
+      `Apple sign-in is not enabled for this ${BRAND_NAME} project yet.`,
     );
 
     return NextResponse.redirect(errorUrl, { status: 303 });

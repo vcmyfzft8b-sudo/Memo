@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand-logo";
 import { getOptionalUser } from "@/lib/auth";
+import { BRAND_NAME } from "@/lib/brand";
 
 type SearchParams = Promise<{
   email?: string;
@@ -36,7 +37,7 @@ export default async function EmailEntryPage({
       </div>
 
       <section className="landing-auth-wrap email-entry-wrap">
-        <Link href="/" className="landing-auth-brand email-entry-brand" aria-label="Syllo home">
+        <Link href="/" className="landing-auth-brand email-entry-brand" aria-label={`${BRAND_NAME} home`}>
           <BrandLogo compact />
         </Link>
 

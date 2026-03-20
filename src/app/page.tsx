@@ -5,6 +5,7 @@ import { Mail } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { getAuthProviderAvailability } from "@/lib/auth-providers";
 import { getOptionalUser } from "@/lib/auth";
+import { BRAND_NAME } from "@/lib/brand";
 import { hasPublicSupabaseEnv } from "@/lib/public-env";
 
 function GoogleMark() {
@@ -56,7 +57,7 @@ export default async function HomePage() {
   return (
     <main className="landing-shell landing-auth-page">
       <div className="landing-auth-wrap">
-        <Link href="/" className="landing-auth-brand" aria-label="Syllo home">
+        <Link href="/" className="landing-auth-brand" aria-label={`${BRAND_NAME} home`}>
           <BrandLogo compact />
         </Link>
 
@@ -94,7 +95,7 @@ export default async function HomePage() {
         </div>
 
         <p className="landing-auth-legal">
-          By continuing, you agree to Syllo&apos;s{" "}
+          By continuing, you agree to {`${BRAND_NAME}'s`}{" "}
           <Link href="/app/support/privacy-policy">Privacy policy</Link>.
         </p>
 
