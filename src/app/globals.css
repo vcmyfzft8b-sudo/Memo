@@ -244,50 +244,24 @@ select:disabled {
 }
 
 .brand-logo-mark {
-  position: relative;
   display: inline-flex;
-  width: 2.1rem;
+  width: 2.55rem;
   height: 2.1rem;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
 }
 
 .brand-logo.compact .brand-logo-mark {
-  width: 1.8rem;
+  width: 2.2rem;
   height: 1.8rem;
 }
 
-.brand-logo-layer {
-  position: absolute;
-  border-radius: 0.82rem;
-  transform: rotate(-8deg);
-}
-
-.brand-logo-layer.back {
-  inset: 0.2rem 0.18rem 0.45rem 0.55rem;
-  background: color-mix(in srgb, var(--tint) 38%, white);
-  opacity: 0.72;
-}
-
-.brand-logo-layer.front {
-  inset: 0.48rem 0.08rem 0.12rem 0.22rem;
-  background: linear-gradient(135deg, var(--tint), color-mix(in srgb, var(--tint) 68%, white));
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--tint) 22%, transparent);
-}
-
-.brand-logo-accent {
-  position: absolute;
-  top: 0.8rem;
-  left: 0.6rem;
-  width: 0.84rem;
-  height: 0.27rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, white 90%, transparent);
-}
-
-.brand-logo.compact .brand-logo-accent {
-  top: 0.68rem;
-  left: 0.52rem;
-  width: 0.72rem;
+.brand-logo-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .brand-logo-copy {
@@ -3849,29 +3823,10 @@ select:disabled {
 }
 
 .landing-auth-brand .brand-logo.compact .brand-logo-mark {
-  width: clamp(3.8rem, 9vw, 5.8rem);
+  width: clamp(4.6rem, 11vw, 7rem);
   height: clamp(3.8rem, 9vw, 5.8rem);
   filter: saturate(1.15);
   transform: none;
-}
-
-.landing-auth-brand .brand-logo.compact .brand-logo-layer {
-  border-radius: 42%;
-}
-
-.landing-auth-brand .brand-logo.compact .brand-logo-layer.back {
-  inset: 11% 10% 24% 28%;
-}
-
-.landing-auth-brand .brand-logo.compact .brand-logo-layer.front {
-  inset: 23% 4% 6% 11%;
-}
-
-.landing-auth-brand .brand-logo.compact .brand-logo-accent {
-  top: 36%;
-  left: 27%;
-  width: 40%;
-  height: 12%;
 }
 
 .landing-auth-hero {
@@ -4839,15 +4794,8 @@ select:disabled {
   }
 
   .desktop-brandline-brand .brand-logo.compact .brand-logo-mark {
-    width: 2.55rem;
+    width: 3rem;
     height: 2.55rem;
-  }
-
-  .desktop-brandline-brand .brand-logo.compact .brand-logo-accent {
-    top: 0.98rem;
-    left: 0.72rem;
-    width: 1rem;
-    height: 0.3rem;
   }
 
   .desktop-brandline-brand .brand-logo-copy strong {

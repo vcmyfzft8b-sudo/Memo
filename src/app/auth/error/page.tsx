@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertCircle, ChevronLeft } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 
 export default async function AuthErrorPage({
   searchParams,
@@ -14,7 +15,7 @@ export default async function AuthErrorPage({
     <main className="landing-shell auth-shell">
       <header className="ios-nav landing-nav">
         <div className="ios-nav-inner landing-nav-inner">
-          <Link href="/" className="landing-brand-link" aria-label="Syllo home">
+          <Link href="/" className="landing-brand-link" aria-label={`${BRAND_NAME} home`}>
             <BrandLogo compact />
           </Link>
 
