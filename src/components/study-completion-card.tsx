@@ -14,7 +14,8 @@ interface StudyCompletionCardProps {
   subtitle: string;
   percentage: number;
   percentageLabel: string;
-  metrics: StudyCompletionMetric[];
+  primaryMetric: StudyCompletionMetric;
+  secondaryMetrics?: StudyCompletionMetric[];
   actions: ReactNode;
 }
 
@@ -36,7 +37,8 @@ export function StudyCompletionCard({
   subtitle,
   percentage,
   percentageLabel,
-  metrics,
+  primaryMetric,
+  secondaryMetrics = [],
   actions,
 }: StudyCompletionCardProps) {
   const clampedPercentage = Math.max(0, Math.min(100, Math.round(percentage)));
@@ -71,15 +73,22 @@ export function StudyCompletionCard({
           </div>
         </div>
 
+        <div className="lecture-study-completion-primary-metric">
+          <span>{primaryMetric.label}</span>
+          <strong>{primaryMetric.value}</strong>
+        </div>
+      </div>
+
+      {secondaryMetrics.length > 0 ? (
         <div className="lecture-study-completion-metrics">
-          {metrics.map((metric) => (
+          {secondaryMetrics.map((metric) => (
             <div key={metric.label} className="lecture-study-completion-metric">
               <span>{metric.label}</span>
               <strong>{metric.value}</strong>
             </div>
           ))}
         </div>
-      </div>
+      ) : null}
 
       <div className="lecture-study-complete-actions">{actions}</div>
     </div>

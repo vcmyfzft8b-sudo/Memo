@@ -2607,7 +2607,7 @@ select:disabled {
   gap: 1.35rem;
   width: min(100%, 40rem);
   margin: auto;
-  padding: 1.55rem;
+  padding: 1.75rem 1.55rem 1.55rem;
   border-radius: 28px;
   border: 1px solid color-mix(in srgb, var(--separator) 55%, transparent);
   background:
@@ -2672,18 +2672,17 @@ select:disabled {
 
 .lecture-study-completion-body {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 1rem;
+  justify-items: center;
+  gap: 1.15rem;
 }
 
 .lecture-study-completion-ring {
   position: relative;
   display: grid;
   place-items: center;
-  width: min(100%, 10.25rem);
+  width: min(100%, 14.5rem);
   aspect-ratio: 1;
-  padding: 0.8rem;
+  padding: 1rem;
   border-radius: 50%;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--separator) 40%, transparent);
 }
@@ -2691,7 +2690,7 @@ select:disabled {
 .lecture-study-completion-ring::after {
   content: "";
   position: absolute;
-  inset: 0.8rem;
+  inset: 1rem;
   border-radius: 50%;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-solid) 99%, transparent), color-mix(in srgb, var(--surface-muted) 86%, transparent));
@@ -2704,7 +2703,7 @@ select:disabled {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 0.28rem;
+  gap: 0.4rem;
   justify-items: center;
   text-align: center;
   color: var(--completion-accent);
@@ -2716,24 +2715,51 @@ select:disabled {
 }
 
 .lecture-study-completion-ring-inner strong {
-  font-size: 1.7rem;
+  font-size: 3rem;
   line-height: 1;
   letter-spacing: -0.05em;
 }
 
 .lecture-study-completion-ring-inner span {
-  max-width: 7ch;
+  max-width: 9ch;
   color: var(--secondary-label);
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   line-height: 1.2;
   text-transform: uppercase;
 }
 
+.lecture-study-completion-primary-metric {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.lecture-study-completion-primary-metric span,
+.lecture-study-completion-primary-metric strong {
+  display: block;
+}
+
+.lecture-study-completion-primary-metric span {
+  color: var(--secondary-label);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lecture-study-completion-primary-metric strong {
+  color: var(--label);
+  font-size: clamp(2rem, 2vw + 1.2rem, 2.7rem);
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+
 .lecture-study-completion-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   width: 100%;
 }
@@ -4528,8 +4554,19 @@ select:disabled {
   }
 
   .lecture-study-completion-body {
-    grid-template-columns: minmax(0, 1fr);
     justify-items: center;
+  }
+
+  .lecture-study-completion-ring {
+    width: min(100%, 12rem);
+  }
+
+  .lecture-study-completion-ring::after {
+    inset: 0.85rem;
+  }
+
+  .lecture-study-completion-ring-inner strong {
+    font-size: 2.5rem;
   }
 
   .lecture-study-completion-metrics {

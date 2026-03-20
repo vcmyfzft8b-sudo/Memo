@@ -873,11 +873,11 @@ export function LectureWorkspace({
                   subtitle={`You cleared all ${totalFlashcards} flashcards. ${flashcardRepeatCount > 0 ? `${flashcardRepeatCount} needed another pass before they stuck.` : "You moved through the deck cleanly on the first pass."}`}
                   percentage={flashcardConfidencePercent}
                   percentageLabel="First-pass confidence"
-                  metrics={[
-                    {
-                      label: "Knew right away",
-                      value: `${flashcardFirstPassKnownCount}/${totalFlashcards}`,
-                    },
+                  primaryMetric={{
+                    label: "Knew right away",
+                    value: `${flashcardFirstPassKnownCount}/${totalFlashcards}`,
+                  }}
+                  secondaryMetrics={[
                     {
                       label: "Reviewed again",
                       value: `${flashcardRepeatCount}`,
@@ -1023,20 +1023,10 @@ export function LectureWorkspace({
                 subtitle={`You answered ${correctQuizAnswers} of ${totalQuizQuestions} questions correctly.`}
                 percentage={quizScorePercent}
                 percentageLabel="Score"
-                metrics={[
-                  {
-                    label: "Correct answers",
-                    value: `${correctQuizAnswers}/${totalQuizQuestions}`,
-                  },
-                  {
-                    label: "Missed",
-                    value: `${totalQuizQuestions - correctQuizAnswers}`,
-                  },
-                  {
-                    label: "Completion",
-                    value: `${answeredQuizQuestions}/${totalQuizQuestions}`,
-                  },
-                ]}
+                primaryMetric={{
+                  label: "Correct answers",
+                  value: `${correctQuizAnswers}/${totalQuizQuestions}`,
+                }}
                 actions={
                   <button
                     type="button"
