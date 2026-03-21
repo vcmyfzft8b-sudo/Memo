@@ -20,7 +20,11 @@ import { StatusBadge } from "@/components/status-badge";
 import { StudyCompletionCard } from "@/components/study-completion-card";
 import type { FlashcardConfidenceBucket, StudyAssetStatus } from "@/lib/database.types";
 import { POLL_INTERVAL_MS } from "@/lib/constants";
-import type { ChatMessageWithCitations, LectureDetail } from "@/lib/types";
+import type {
+  ChatMessageWithCitations,
+  LectureDetail,
+  QuizQuestionWithOptions,
+} from "@/lib/types";
 import {
   formatCalendarDate,
   formatTimestamp,
@@ -199,6 +203,58 @@ function isLegacySectionId(value: string) {
   return value.startsWith("legacy-");
 }
 
+function randomInt(maxExclusive: number) {
+  if (maxExclusive <= 1) {
+    return 0;
+  }
+
+  if (!globalThis.crypto?.getRandomValues) {
+    return Math.floor(Math.random() * maxExclusive);
+  }
+
+  const maxUint32 = 0x1_0000_0000;
+  const biasSafeLimit = maxUint32 - (maxUint32 % maxExclusive);
+  const buffer = new Uint32Array(1);
+  let randomValue = 0;
+
+  do {
+    globalThis.crypto.getRandomValues(buffer);
+    randomValue = buffer[0] ?? 0;
+  } while (randomValue >= biasSafeLimit);
+
+  return randomValue % maxExclusive;
+}
+
+function shuffleIndices(length: number) {
+  const indices = Array.from({ length }, (_, index) => index);
+
+  for (let index = indices.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(index + 1);
+    const currentValue = indices[index];
+    indices[index] = indices[swapIndex] ?? index;
+    indices[swapIndex] = currentValue ?? swapIndex;
+  }
+
+  return indices;
+}
+
+function buildQuizOptionOrders(
+  questionIds: string[],
+  questionsById: Map<string, QuizQuestionWithOptions>,
+) {
+  return new Map(
+    questionIds.flatMap((questionId) => {
+      const question = questionsById.get(questionId);
+
+      if (!question) {
+        return [];
+      }
+
+      return [[questionId, shuffleIndices(question.options.length)]];
+    }),
+  );
+}
+
 function ChatBubble({ message }: { message: ChatMessageWithCitations }) {
   const assistant = message.role === "assistant";
 
@@ -261,6 +317,7 @@ export function LectureWorkspace({
   const [quizRoundSummary, setQuizRoundSummary] = useState<QuizRoundSummary | null>(null);
   const [activeQuizQuestionIndex, setActiveQuizQuestionIndex] = useState(0);
   const [quizSelections, setQuizSelections] = useState<Record<string, number>>({});
+  const [quizOptionOrders, setQuizOptionOrders] = useState<Map<string, number[]>>(new Map());
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const studyDeck = detail.flashcards;
   const flashcardDeckKey = studyDeck.map((flashcard) => flashcard.id).join("|");
@@ -334,7 +391,8 @@ export function LectureWorkspace({
     setQuizRoundSummary(null);
     setActiveQuizQuestionIndex(0);
     setQuizSelections({});
-  }, [quizDeckKey]);
+    setQuizOptionOrders(buildQuizOptionOrders(initialQueue, quizQuestionsById));
+  }, [quizDeckKey, quizQuestionsById]);
 
   useEffect(() => {
     if (activeTab !== "chat") {
@@ -399,6 +457,11 @@ export function LectureWorkspace({
     : null;
   const activeQuizSelection =
     currentQuizQuestionId ? (quizSelections[currentQuizQuestionId] ?? null) : null;
+  const activeQuizOptionOrder =
+    currentQuizQuestionId && activeQuizQuestion
+      ? (quizOptionOrders.get(currentQuizQuestionId) ??
+        Array.from({ length: activeQuizQuestion.options.length }, (_, index) => index))
+      : [];
   const totalQuizQuestions = detail.quizQuestions.length;
   const quizRoundPercent =
     quizRoundSummary && quizRoundSummary.total > 0
@@ -654,6 +717,7 @@ export function LectureWorkspace({
     setQuizRoundSummary(null);
     setActiveQuizQuestionIndex(0);
     setQuizSelections({});
+    setQuizOptionOrders(buildQuizOptionOrders(quizRoundSummary.missedQuestionIds, quizQuestionsById));
     setStudyError(null);
   }
 
@@ -665,6 +729,7 @@ export function LectureWorkspace({
     setQuizRoundSummary(null);
     setActiveQuizQuestionIndex(0);
     setQuizSelections({});
+    setQuizOptionOrders(buildQuizOptionOrders(initialQueue, quizQuestionsById));
     setStudyError(null);
   }
 
@@ -1121,9 +1186,12 @@ export function LectureWorkspace({
                   <p className="lecture-quiz-prompt">{activeQuizQuestion.prompt}</p>
 
                   <div className="lecture-quiz-options">
-                    {activeQuizQuestion.options.map((option, optionIndex) => {
+                    {activeQuizOptionOrder.map((optionIndex, displayIndex) => {
+                      const option = activeQuizQuestion.options[optionIndex] ?? "";
                       const isSelected = activeQuizSelection === optionIndex;
-                      const isCorrect = activeQuizSelection !== null && optionIndex === activeQuizQuestion.correct_option_idx;
+                      const isCorrect =
+                        activeQuizSelection !== null &&
+                        optionIndex === activeQuizQuestion.correct_option_idx;
                       const isIncorrect =
                         activeQuizSelection !== null &&
                         isSelected &&
@@ -1138,7 +1206,7 @@ export function LectureWorkspace({
                           className={`lecture-quiz-option ${isSelected ? "selected" : ""} ${isCorrect ? "correct" : ""} ${isIncorrect ? "incorrect" : ""}`}
                         >
                           <span className="lecture-quiz-option-label">
-                            {String.fromCharCode(65 + optionIndex)}
+                            {String.fromCharCode(65 + displayIndex)}
                           </span>
                           <span className="lecture-quiz-option-copy">{option}</span>
                         </button>
