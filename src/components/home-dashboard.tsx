@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { flushSync } from "react-dom";
 
 import { NoteSourceModal, type NoteSourceMode } from "@/components/note-source-modal";
 import { StatusBadge } from "@/components/status-badge";
@@ -136,11 +137,14 @@ export function HomeDashboard({
   }
 
   async function handleDeleteLecture(id: string) {
+    flushSync(() => {
+      setOpenMenuLectureId(null);
+    });
+
     if (!window.confirm("Delete this note? This cannot be undone.")) {
       return;
     }
 
-    setOpenMenuLectureId(null);
     setBusyLectureId(id);
     const response = await fetch(`/api/lectures/${id}`, { method: "DELETE" });
     setBusyLectureId(null);
@@ -167,13 +171,17 @@ export function HomeDashboard({
 
   async function handleRenameLecture(lecture: AppLectureListItem) {
     const currentTitle = lecture.title?.trim() || "Untitled note";
+
+    flushSync(() => {
+      setOpenMenuLectureId(null);
+    });
+
     const nextTitle = window.prompt("Rename note", currentTitle)?.trim();
 
     if (!nextTitle || nextTitle === currentTitle) {
       return;
     }
 
-    setOpenMenuLectureId(null);
     setBusyLectureId(lecture.id);
     const response = await fetch(`/api/lectures/${lecture.id}`, {
       method: "PATCH",

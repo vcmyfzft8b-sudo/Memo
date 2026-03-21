@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { enqueueLectureProcessing } from "@/lib/jobs";
 import { ensureUserOwnsLecture } from "@/lib/lectures";
@@ -49,7 +49,9 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  await enqueueLectureProcessing(id);
+  after(async () => {
+    await enqueueLectureProcessing(id);
+  });
 
   return NextResponse.json({ ok: true });
 }

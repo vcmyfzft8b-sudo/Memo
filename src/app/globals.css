@@ -1215,6 +1215,7 @@ select:disabled {
   gap: 1.1rem;
   max-width: 1660px;
   margin: 0 auto;
+  overflow-x: clip;
 }
 
 .dashboard-section {
