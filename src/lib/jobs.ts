@@ -17,7 +17,7 @@ export async function enqueueLectureProcessing(lectureId: string) {
     return;
   }
 
-  void runLecturePipeline({ lectureId }).catch(() => {
+  await runLecturePipeline({ lectureId }).catch(() => {
     // Errors are persisted on the lecture row by the pipeline.
   });
 }

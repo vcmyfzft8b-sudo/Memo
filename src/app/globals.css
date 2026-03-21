@@ -568,6 +568,7 @@ select:disabled {
 
 .app-shell-content {
   padding-top: 1rem;
+  overflow-x: clip;
 }
 
 .ios-tabbar {
@@ -1215,6 +1216,7 @@ select:disabled {
   gap: 1.1rem;
   max-width: 1660px;
   margin: 0 auto;
+  overflow-x: clip;
 }
 
 .dashboard-section {
@@ -2077,6 +2079,9 @@ select:disabled {
   display: flex;
   align-items: center;
   gap: 1rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 1.35rem 1.7rem;
   background-color: var(--surface-solid);
   border: 1px solid color-mix(in srgb, var(--separator) 65%, transparent);
@@ -2110,6 +2115,7 @@ select:disabled {
   align-items: center;
   gap: 1rem;
   min-width: 0;
+  max-width: 100%;
   flex: 1;
 }
 
@@ -2129,11 +2135,15 @@ select:disabled {
 .ios-row-note-card .ios-row-title {
   font-weight: 500;
   font-size: 0.98rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-note-list {
   display: grid;
   gap: 0.7rem;
+  min-width: 0;
 }
 
 .dashboard-note-menu-button {
@@ -2198,6 +2208,63 @@ select:disabled {
 
 .dashboard-note-menu-item.danger {
   color: var(--red);
+}
+
+.dashboard-note-dialog {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid color-mix(in srgb, var(--separator) 72%, transparent);
+}
+
+.dashboard-note-dialog-body {
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard-note-dialog-copy {
+  margin: 0;
+  text-align: center;
+}
+
+.dashboard-note-dialog-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dashboard-note-dialog-field > span {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--label);
+}
+
+.dashboard-note-dialog-actions {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.dashboard-note-dialog-danger {
+  display: inline-flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  padding: 0 1rem;
+  background: color-mix(in srgb, var(--red-soft) 92%, transparent);
+  color: var(--red);
+  font-size: 1.05rem;
+  font-weight: 600;
+  transition: opacity 0.15s ease;
+}
+
+.dashboard-note-dialog-danger:disabled {
+  opacity: 0.5;
+}
+
+.dashboard-note-dialog-highlight {
+  color: var(--label);
+  font-weight: 600;
 }
 
 /* Utility to completely clear original dashboard layout pieces no longer needed */

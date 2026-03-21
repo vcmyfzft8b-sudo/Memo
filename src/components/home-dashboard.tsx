@@ -14,6 +14,7 @@ import {
   Search,
   Trash2,
   Type,
+  X,
 } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -98,6 +99,9 @@ export function HomeDashboard({
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedFolderLectureIds, setSelectedFolderLectureIds] = useState<string[] | null>(null);
   const [openMenuLectureId, setOpenMenuLectureId] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<AppLectureListItem | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<AppLectureListItem | null>(null);
   const deferredQuery = useDeferredValue(query);
 
   const searchModal = (() => {
@@ -128,6 +132,29 @@ export function HomeDashboard({
     return () => window.removeEventListener("mousedown", handlePointerDown);
   }, [openMenuLectureId]);
 
+  useEffect(() => {
+    if (!renameTarget && !deleteTarget) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (busyLectureId) {
+        return;
+      }
+
+      setRenameTarget(null);
+      setRenameValue("");
+      setDeleteTarget(null);
+    }
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [busyLectureId, deleteTarget, renameTarget]);
+
   function closeModal() {
     setManualModal(null);
     if (searchModal) {
@@ -135,21 +162,49 @@ export function HomeDashboard({
     }
   }
 
-  async function handleDeleteLecture(id: string) {
-    if (!window.confirm("Delete this note? This cannot be undone.")) {
+  function openRenameModal(lecture: AppLectureListItem) {
+    setOpenMenuLectureId(null);
+    setRenameTarget(lecture);
+    setRenameValue(lecture.title?.trim() || "Untitled note");
+  }
+
+  function closeRenameModal() {
+    if (busyLectureId === renameTarget?.id) {
       return;
     }
 
+    setRenameTarget(null);
+    setRenameValue("");
+  }
+
+  function openDeleteModal(lecture: AppLectureListItem) {
     setOpenMenuLectureId(null);
-    setBusyLectureId(id);
-    const response = await fetch(`/api/lectures/${id}`, { method: "DELETE" });
+    setDeleteTarget(lecture);
+  }
+
+  function closeDeleteModal() {
+    if (busyLectureId === deleteTarget?.id) {
+      return;
+    }
+
+    setDeleteTarget(null);
+  }
+
+  async function handleDeleteLecture() {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setBusyLectureId(deleteTarget.id);
+    const response = await fetch(`/api/lectures/${deleteTarget.id}`, { method: "DELETE" });
     setBusyLectureId(null);
 
     if (!response.ok) {
       return;
     }
 
-    setLibraryLectures((current) => current.filter((lecture) => lecture.id !== id));
+    setLibraryLectures((current) => current.filter((lecture) => lecture.id !== deleteTarget.id));
+    setDeleteTarget(null);
     startTransition(() => router.refresh());
   }
 
@@ -165,17 +220,21 @@ export function HomeDashboard({
     startTransition(() => router.refresh());
   }
 
-  async function handleRenameLecture(lecture: AppLectureListItem) {
-    const currentTitle = lecture.title?.trim() || "Untitled note";
-    const nextTitle = window.prompt("Rename note", currentTitle)?.trim();
-
-    if (!nextTitle || nextTitle === currentTitle) {
+  async function handleRenameLecture() {
+    if (!renameTarget) {
       return;
     }
 
-    setOpenMenuLectureId(null);
-    setBusyLectureId(lecture.id);
-    const response = await fetch(`/api/lectures/${lecture.id}`, {
+    const currentTitle = renameTarget.title?.trim() || "Untitled note";
+    const nextTitle = renameValue.trim();
+
+    if (!nextTitle || nextTitle === currentTitle) {
+      closeRenameModal();
+      return;
+    }
+
+    setBusyLectureId(renameTarget.id);
+    const response = await fetch(`/api/lectures/${renameTarget.id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -190,7 +249,7 @@ export function HomeDashboard({
 
     setLibraryLectures((current) =>
       current.map((item) =>
-        item.id === lecture.id
+        item.id === renameTarget.id
           ? {
               ...item,
               title: nextTitle,
@@ -198,6 +257,8 @@ export function HomeDashboard({
           : item,
       ),
     );
+    setRenameTarget(null);
+    setRenameValue("");
     startTransition(() => router.refresh());
   }
 
@@ -304,7 +365,7 @@ export function HomeDashboard({
                     <button
                       type="button"
                       disabled={busyLectureId === lecture.id}
-                      onClick={() => void handleDeleteLecture(lecture.id)}
+                      onClick={() => openDeleteModal(lecture)}
                       className="ios-text-button"
                       style={{ color: "var(--red)", backgroundColor: "var(--red-soft)", padding: "0.3rem 1rem", borderRadius: "10px", fontSize: "0.85rem", fontWeight: 600 }}
                     >
@@ -388,7 +449,7 @@ export function HomeDashboard({
                       <div className="dashboard-note-menu">
                         <button
                           type="button"
-                          onClick={() => void handleRenameLecture(lecture)}
+                          onClick={() => openRenameModal(lecture)}
                           className="dashboard-note-menu-item"
                           aria-label="Rename note"
                           title="Rename note"
@@ -398,7 +459,7 @@ export function HomeDashboard({
                         </button>
                         <button
                           type="button"
-                          onClick={() => void handleDeleteLecture(lecture.id)}
+                          onClick={() => openDeleteModal(lecture)}
                           className="dashboard-note-menu-item danger"
                           aria-label="Delete note"
                           title="Delete note"
@@ -447,6 +508,148 @@ export function HomeDashboard({
       </div>
 
       <NoteSourceModal mode={activeModal} open={Boolean(activeModal)} onClose={closeModal} />
+
+      {renameTarget ? (
+        <>
+          <div className="ios-sheet-backdrop" onClick={closeRenameModal} aria-hidden="true" />
+          <div className="ios-sheet-wrap" role="presentation">
+            <div className="ios-sheet-stack">
+              <section
+                className="ios-sheet dashboard-note-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rename-note-title"
+              >
+                <div className="ios-sheet-header">
+                  <h2 id="rename-note-title" className="ios-sheet-title">
+                    Rename note
+                  </h2>
+                  <button
+                    type="button"
+                    className="app-close-button ios-sheet-header-close"
+                    onClick={closeRenameModal}
+                    aria-label="Close rename note dialog"
+                    disabled={busyLectureId === renameTarget.id}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <form
+                  className="dashboard-note-dialog-body"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleRenameLecture();
+                  }}
+                >
+                  <p className="ios-subtitle dashboard-note-dialog-copy">
+                    Give this note a clearer title without leaving the page.
+                  </p>
+
+                  <label className="dashboard-note-dialog-field">
+                    <span>Title</span>
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(event) => setRenameValue(event.target.value)}
+                      className="ios-input"
+                      placeholder="Untitled note"
+                    />
+                  </label>
+
+                  <div className="dashboard-note-dialog-actions">
+                    <button
+                      type="submit"
+                      className="ios-primary-button"
+                      disabled={
+                        busyLectureId === renameTarget.id ||
+                        !renameValue.trim() ||
+                        renameValue.trim() === (renameTarget.title?.trim() || "Untitled note")
+                      }
+                    >
+                      {busyLectureId === renameTarget.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      Save title
+                    </button>
+                    <button
+                      type="button"
+                      className="ios-secondary-button"
+                      onClick={closeRenameModal}
+                      disabled={busyLectureId === renameTarget.id}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {deleteTarget ? (
+        <>
+          <div className="ios-sheet-backdrop" onClick={closeDeleteModal} aria-hidden="true" />
+          <div className="ios-sheet-wrap" role="presentation">
+            <div className="ios-sheet-stack">
+              <section
+                className="ios-sheet dashboard-note-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="delete-note-title"
+              >
+                <div className="ios-sheet-header">
+                  <h2 id="delete-note-title" className="ios-sheet-title">
+                    Delete note
+                  </h2>
+                  <button
+                    type="button"
+                    className="app-close-button ios-sheet-header-close"
+                    onClick={closeDeleteModal}
+                    aria-label="Close delete note dialog"
+                    disabled={busyLectureId === deleteTarget.id}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="dashboard-note-dialog-body">
+                  <p className="ios-subtitle dashboard-note-dialog-copy">
+                    Delete{" "}
+                    <span className="dashboard-note-dialog-highlight">
+                      {deleteTarget.title?.trim() || "Untitled note"}
+                    </span>
+                    ? This cannot be undone.
+                  </p>
+
+                  <div className="dashboard-note-dialog-actions">
+                    <button
+                      type="button"
+                      className="dashboard-note-dialog-danger"
+                      onClick={() => void handleDeleteLecture()}
+                      disabled={busyLectureId === deleteTarget.id}
+                    >
+                      {busyLectureId === deleteTarget.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      Delete note
+                    </button>
+                    <button
+                      type="button"
+                      className="ios-secondary-button"
+                      onClick={closeDeleteModal}
+                      disabled={busyLectureId === deleteTarget.id}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </>
+      ) : null}
     </>
   );
 }

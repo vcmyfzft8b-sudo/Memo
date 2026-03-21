@@ -273,12 +273,6 @@ export function LectureWorkspace({
   }, [activeTab, detail.audioUrl]);
 
   useEffect(() => {
-    if (activeTab === "study" && detail.flashcards.length === 0 && detail.audioUrl && detail.lecture.status !== "ready") {
-      setActiveTab("notes");
-    }
-  }, [activeTab, detail.audioUrl, detail.flashcards.length, detail.lecture.status]);
-
-  useEffect(() => {
     if (
       !shouldPollLecture(detail.lecture.status) &&
       !shouldPollAsset(detail.studyAsset?.status) &&

@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/prepare-next-runtime.mjs",
+    "predev:turbopack": "node scripts/prepare-next-runtime.mjs",
+    "prebuild": "node scripts/prepare-next-runtime.mjs",
+    "prestart": "node scripts/prepare-next-runtime.mjs",
     "dev": "NODE_PATH=./node_modules next dev --webpack",
     "dev:turbopack": "NODE_PATH=./node_modules next dev",
     "build": "NODE_PATH=./node_modules next build",
