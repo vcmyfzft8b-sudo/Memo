@@ -4,6 +4,10 @@ import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
+  const authError = request.nextUrl.searchParams.get("error");
+  const authErrorCode = request.nextUrl.searchParams.get("error_code");
+  const authErrorDescription =
+    request.nextUrl.searchParams.get("error_description");
   const requestedNext = request.nextUrl.searchParams.get("next");
   const next = requestedNext?.startsWith("/") ? requestedNext : "/app";
 
@@ -11,7 +15,15 @@ export async function GET(request: NextRequest) {
     const fallbackUrl = request.nextUrl.clone();
     fallbackUrl.pathname = "/auth/error";
     fallbackUrl.search = "";
-    fallbackUrl.searchParams.set("message", "Missing authentication code.");
+    fallbackUrl.searchParams.set(
+      "message",
+      authErrorDescription ??
+        (authErrorCode === "otp_expired"
+          ? "This sign-in link has expired. Request a new email and try again."
+          : authError
+            ? "Authentication was canceled or denied."
+            : "Missing authentication code."),
+    );
     return NextResponse.redirect(fallbackUrl, { status: 303 });
   }
 
