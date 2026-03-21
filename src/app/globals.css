@@ -3247,17 +3247,46 @@ select:disabled {
   width: 100%;
 }
 
+.lecture-markdown > .markdown {
+  font-size: 1.04rem;
+}
+
+.lecture-markdown .markdown h1,
+.lecture-markdown .markdown h2,
+.lecture-markdown .markdown h3,
+.lecture-markdown .markdown h4 {
+  margin-top: 1.9rem;
+  margin-bottom: 0.7rem;
+}
+
 .lecture-markdown h1 {
-  font-size: 1.5rem;
+  font-size: 1.65rem;
 }
 
 .lecture-markdown h2 {
-  font-size: 1.2rem;
+  font-size: 1.32rem;
+}
+
+.lecture-markdown h3 {
+  font-size: 1.14rem;
 }
 
 .lecture-markdown p,
 .lecture-markdown li {
-  line-height: 1.75;
+  font-size: 1.06rem;
+  line-height: 1.82;
+}
+
+.lecture-markdown p + h1,
+.lecture-markdown p + h2,
+.lecture-markdown p + h3,
+.lecture-markdown ul + h1,
+.lecture-markdown ul + h2,
+.lecture-markdown ul + h3,
+.lecture-markdown ol + h1,
+.lecture-markdown ol + h2,
+.lecture-markdown ol + h3 {
+  margin-top: 2.15rem;
 }
 
 .lecture-empty-card {
