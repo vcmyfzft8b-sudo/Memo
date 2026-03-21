@@ -1,7 +1,6 @@
 import Image from "next/image";
 
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
-import memoLogo from "../../F79E79FB-D598-447B-B7DE-00DA9195851B.PNG";
 
 export function BrandLogo({
   subtitle = BRAND_TAGLINE,
@@ -14,7 +13,7 @@ export function BrandLogo({
     <span className={`brand-logo ${compact ? "compact" : ""}`}>
       <span className="brand-logo-mark" aria-hidden="true">
         <Image
-          src={memoLogo}
+          src="/memo-logo.png"
           alt=""
           width={3651}
           height={3285}
