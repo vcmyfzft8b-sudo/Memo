@@ -801,7 +801,7 @@ export function NoteSourceModal({
                     onClick={() => uploadInputRef.current?.click()}
                   >
                     <UploadCloud className="h-4 w-4" />
-                    {preparedUpload ? "Choose another file" : "Choose file"}
+                    {preparedUpload ? "Choose another audio file" : "Choose audio file"}
                   </button>
 
                   <button
@@ -898,7 +898,8 @@ export function NoteSourceModal({
                     disabled={Boolean(busyLabel)}
                     onClick={() => pdfInputRef.current?.click()}
                   >
-                    {pdfSource ? "Choose another PDF" : "Use PDF instead of text"}
+                    <UploadCloud className="h-4 w-4" />
+                    {pdfSource ? "Choose another PDF file" : "Choose PDF file"}
                   </button>
 
                   <button
