@@ -9,6 +9,15 @@ export const metadata: Metadata = {
   title: BRAND_NAME,
   description:
     "AI lecture notes with recording, transcription, summaries, and chat.",
+  applicationName: BRAND_NAME,
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: BRAND_NAME,
+  },
+  icons: {
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({
