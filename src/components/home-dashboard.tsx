@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   AlertCircle,
   ChevronRight,
@@ -30,6 +29,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { NoteSourceModal, type NoteSourceMode } from "@/components/note-source-modal";
 import { StatusBadge } from "@/components/status-badge";
 import { LibraryFolderMenu } from "@/components/library-folder-menu";
+import { InstantLink } from "@/components/instant-link";
 import type { AppLectureListItem } from "@/lib/types";
 import { formatCalendarDate } from "@/lib/utils";
 
@@ -113,7 +113,7 @@ const NoteRow = memo(function NoteRow({
 }: NoteRowProps) {
   return (
     <div className={`ios-row-note-card ${isMenuOpen ? "menu-open" : ""}`}>
-      <Link href={`/app/lectures/${lecture.id}`} className="ios-row-note-card-link">
+      <InstantLink href={`/app/lectures/${lecture.id}`} className="ios-row-note-card-link">
         <div className="ios-row-icon" style={{ backgroundColor: "var(--surface-muted)" }}>
           <SourceIcon sourceType={lecture.source_type} />
         </div>
@@ -128,7 +128,7 @@ const NoteRow = memo(function NoteRow({
         <div className="flex items-center gap-3">
           {lecture.status !== "ready" && <StatusBadge status={lecture.status} />}
         </div>
-      </Link>
+      </InstantLink>
 
       <div ref={isMenuOpen ? attachMenuRef : undefined} className="dashboard-note-actions">
         <button

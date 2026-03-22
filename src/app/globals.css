@@ -2367,6 +2367,100 @@ select:disabled {
   font-weight: 600;
 }
 
+.app-loading-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.app-loading-header,
+.app-loading-card {
+  overflow: hidden;
+  position: relative;
+}
+
+.app-loading-header {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.app-loading-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.app-loading-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.35rem 1.4rem;
+  border-radius: 20px;
+}
+
+.app-loading-card-tall {
+  min-height: 12rem;
+}
+
+.app-loading-pill,
+.app-loading-row,
+.app-loading-note {
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 92%, var(--canvas));
+}
+
+.app-loading-pill::after,
+.app-loading-row::after,
+.app-loading-note::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, white 55%, transparent),
+    transparent
+  );
+  animation: app-loading-shimmer 1s ease-in-out infinite;
+}
+
+.app-loading-pill-title {
+  width: min(12rem, 48vw);
+  height: 1.6rem;
+}
+
+.app-loading-pill-subtitle {
+  width: min(18rem, 70vw);
+  height: 0.85rem;
+}
+
+.app-loading-pill-section {
+  width: 6.25rem;
+  height: 0.9rem;
+}
+
+.app-loading-row {
+  width: 100%;
+  height: 0.95rem;
+}
+
+.app-loading-row.short {
+  width: 72%;
+}
+
+.app-loading-note {
+  width: 100%;
+  height: 4.75rem;
+  border-radius: 18px;
+}
+
+@keyframes app-loading-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* Utility to completely clear original dashboard layout pieces no longer needed */
 .app-hero,
 .app-metrics-grid,
@@ -5018,6 +5112,10 @@ select:disabled {
   .dashboard-note-menu-button {
     width: 2.75rem;
     height: 2.75rem;
+  }
+
+  .app-loading-card {
+    padding: 1.1rem;
   }
   
   .ios-nav-inner {
