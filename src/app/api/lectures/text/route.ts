@@ -5,6 +5,7 @@ import { createLectureFromTextSource } from "@/lib/manual-lectures";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const createTextLectureSchema = z.object({
+  lectureId: z.string().uuid().optional(),
   text: z.string().trim().min(120).max(120000),
   languageHint: z.string().trim().min(2).max(10).default("en"),
 });
@@ -29,7 +30,25 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (parsed.data.lectureId) {
+      const { data: lecture, error: lectureError } = await supabase
+        .from("lectures")
+        .select("id")
+        .eq("id", parsed.data.lectureId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (lectureError) {
+        throw new Error(lectureError.message);
+      }
+
+      if (!lecture) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+    }
+
     const lectureId = await createLectureFromTextSource({
+      lectureId: parsed.data.lectureId,
       userId: user.id,
       sourceType: "text",
       text: parsed.data.text,

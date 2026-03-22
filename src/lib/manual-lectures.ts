@@ -459,6 +459,7 @@ export async function createLectureFromTextSource(params: {
   languageHint?: string;
   titleHint?: string;
   modelMetadata?: Record<string, unknown>;
+  lectureId?: string;
 }) {
   const supabase = createSupabaseServiceRoleClient();
   const cleanedText = normalizeWhitespace(params.text);
@@ -480,28 +481,69 @@ export async function createLectureFromTextSource(params: {
   const durationSeconds = estimateDurationSeconds(cleanedText);
   let lectureId: string | null = null;
 
-  try {
-    const { data: lecture, error: lectureError } = await supabase
+  async function requireActiveLecture(targetLectureId: string) {
+    const { data: lecture, error } = await supabase
       .from("lectures")
-      .insert(
-        {
-          user_id: params.userId,
-          source_type: params.sourceType,
-          status: "generating_notes",
-          language_hint: params.languageHint ?? "sl",
-          duration_seconds: durationSeconds,
-        } as never,
-      )
       .select("id")
-      .single();
+      .eq("id", targetLectureId)
+      .maybeSingle();
 
-    if (lectureError || !lecture) {
-      throw new Error(lectureError?.message ?? "Could not create note.");
+    if (error) {
+      throw new Error(error.message);
     }
 
-    lectureId = (lecture as { id: string }).id;
+    if (!lecture) {
+      throw new Error("Lecture was cancelled.");
+    }
+  }
+
+  try {
+    if (params.lectureId) {
+      lectureId = params.lectureId;
+      await requireActiveLecture(lectureId);
+      const { error: lectureUpdateError } = await supabase
+        .from("lectures")
+        .update(
+          {
+            source_type: params.sourceType,
+            status: "generating_notes",
+            language_hint: params.languageHint ?? "sl",
+            duration_seconds: durationSeconds,
+            error_message: null,
+          } as never,
+        )
+        .eq("id", lectureId)
+        .eq("user_id", params.userId);
+
+      if (lectureUpdateError) {
+        throw new Error(lectureUpdateError.message);
+      }
+    } else {
+      const { data: lecture, error: lectureError } = await supabase
+        .from("lectures")
+        .insert(
+          {
+            user_id: params.userId,
+            source_type: params.sourceType,
+            status: "generating_notes",
+            language_hint: params.languageHint ?? "sl",
+            duration_seconds: durationSeconds,
+          } as never,
+        )
+        .select("id")
+        .single();
+
+      if (lectureError || !lecture) {
+        throw new Error(lectureError?.message ?? "Could not create note.");
+      }
+
+      lectureId = (lecture as { id: string }).id;
+    }
 
     const embeddings = await createEmbeddings(transcript.map((segment) => segment.text));
+
+    await requireActiveLecture(lectureId);
+
     const transcriptRows = transcript.map((segment, index) => ({
       lecture_id: lectureId,
       idx: segment.idx,
@@ -526,6 +568,9 @@ export async function createLectureFromTextSource(params: {
       outputLanguage: params.languageHint,
       sourceTitleHint: params.titleHint,
     });
+
+    await requireActiveLecture(lectureId);
+
     const { error: artifactError } = await supabase
       .from("lecture_artifacts")
       .upsert(
@@ -548,7 +593,7 @@ export async function createLectureFromTextSource(params: {
       throw new Error(artifactError.message);
     }
 
-    const { error: updateError } = await supabase
+    const { data: updatedLecture, error: updateError } = await supabase
       .from("lectures")
       .update(
         {
@@ -558,24 +603,39 @@ export async function createLectureFromTextSource(params: {
           duration_seconds: durationSeconds,
         } as never,
       )
-      .eq("id", lectureId);
+      .eq("id", lectureId)
+      .select("id")
+      .maybeSingle();
 
     if (updateError) {
       throw new Error(updateError.message);
     }
 
+    if (!updatedLecture) {
+      await requireActiveLecture(lectureId);
+    }
+
     return lectureId;
   } catch (error) {
     if (lectureId) {
-      await supabase
+      const { data: lecture } = await supabase
         .from("lectures")
-        .update(
-          {
-            status: "failed",
-            error_message: error instanceof Error ? error.message : "Unknown processing error.",
-          } as never,
-        )
-        .eq("id", lectureId);
+        .select("id")
+        .eq("id", lectureId)
+        .maybeSingle();
+
+      if (lecture) {
+        await supabase
+          .from("lectures")
+          .update(
+            {
+              status: "failed",
+              error_message:
+                error instanceof Error ? error.message : "Unknown processing error.",
+            } as never,
+          )
+          .eq("id", lectureId);
+      }
     }
 
     throw error;

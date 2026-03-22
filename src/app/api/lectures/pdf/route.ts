@@ -17,6 +17,8 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
+  const lectureId =
+    typeof formData.get("lectureId") === "string" ? String(formData.get("lectureId")) : null;
   const inputFile = formData.get("file");
   const languageHint =
     typeof formData.get("languageHint") === "string"
@@ -39,8 +41,26 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (lectureId) {
+      const { data: lecture, error: lectureError } = await supabase
+        .from("lectures")
+        .select("id")
+        .eq("id", lectureId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (lectureError) {
+        throw new Error(lectureError.message);
+      }
+
+      if (!lecture) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+    }
+
     const extracted = await extractTextFromPdf(inputFile);
-    const lectureId = await createLectureFromTextSource({
+    const nextLectureId = await createLectureFromTextSource({
+      lectureId: lectureId ?? undefined,
       userId: user.id,
       sourceType: "pdf",
       text: extracted.text,
@@ -57,7 +77,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ lectureId });
+    return NextResponse.json({ lectureId: nextLectureId });
   } catch (error) {
     return NextResponse.json(
       {

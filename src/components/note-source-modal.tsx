@@ -249,6 +249,35 @@ export function NoteSourceModal({
     createdLectureIdRef.current = null;
   }, []);
 
+  const createManualLecture = useCallback(
+    async (sourceType: "text" | "pdf" | "link") => {
+      const controller = new AbortController();
+      activeRequestControllerRef.current = controller;
+
+      const response = await fetch("/api/lectures/manual", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          sourceType,
+          languageHint,
+        }),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "The note could not be created.");
+      }
+
+      createdLectureIdRef.current = payload.lectureId;
+      return payload.lectureId as string;
+    },
+    [languageHint],
+  );
+
   const handleCancelBusyAction = useCallback(async () => {
     cancelRequestedRef.current = true;
     activeRequestControllerRef.current?.abort();
@@ -544,11 +573,19 @@ export function NoteSourceModal({
     }
 
     try {
+      setBusyLabel("Preparing...");
+      setError(null);
+      cancelRequestedRef.current = false;
+      const lectureId = await createManualLecture("text");
+
+      if (cancelRequestedRef.current) {
+        await deleteCreatedLecture();
+        return;
+      }
+
       const controller = new AbortController();
       activeRequestControllerRef.current = controller;
       setBusyLabel("Creating notes...");
-      setError(null);
-      cancelRequestedRef.current = false;
 
       const response = await fetch("/api/lectures/text", {
         method: "POST",
@@ -557,6 +594,7 @@ export function NoteSourceModal({
         },
         signal: controller.signal,
         body: JSON.stringify({
+          lectureId,
           text: trimmedTextValue,
           languageHint,
         }),
@@ -569,9 +607,11 @@ export function NoteSourceModal({
       }
 
       onClose();
-      router.push(`/app/lectures/${payload.lectureId}`);
+      createdLectureIdRef.current = null;
+      router.push(`/app/lectures/${lectureId}`);
       router.refresh();
     } catch (submitError) {
+      await deleteCreatedLecture();
       if (!cancelRequestedRef.current) {
         setError(
           submitError instanceof Error
@@ -593,11 +633,19 @@ export function NoteSourceModal({
     }
 
     try {
+      setBusyLabel("Preparing...");
+      setError(null);
+      cancelRequestedRef.current = false;
+      const lectureId = await createManualLecture("link");
+
+      if (cancelRequestedRef.current) {
+        await deleteCreatedLecture();
+        return;
+      }
+
       const controller = new AbortController();
       activeRequestControllerRef.current = controller;
       setBusyLabel("Reading page...");
-      setError(null);
-      cancelRequestedRef.current = false;
 
       const response = await fetch("/api/lectures/link", {
         method: "POST",
@@ -606,6 +654,7 @@ export function NoteSourceModal({
         },
         signal: controller.signal,
         body: JSON.stringify({
+          lectureId,
           url: trimmedLinkValue,
           languageHint,
         }),
@@ -618,9 +667,11 @@ export function NoteSourceModal({
       }
 
       onClose();
-      router.push(`/app/lectures/${payload.lectureId}`);
+      createdLectureIdRef.current = null;
+      router.push(`/app/lectures/${lectureId}`);
       router.refresh();
     } catch (submitError) {
+      await deleteCreatedLecture();
       if (!cancelRequestedRef.current) {
         setError(
           submitError instanceof Error
@@ -672,15 +723,24 @@ export function NoteSourceModal({
     }
 
     try {
+      setBusyLabel("Preparing...");
+      setError(null);
+      cancelRequestedRef.current = false;
+      const lectureId = await createManualLecture("pdf");
+
+      if (cancelRequestedRef.current) {
+        await deleteCreatedLecture();
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("lectureId", lectureId);
+      formData.append("file", pdfSource);
+      formData.append("languageHint", languageHint);
+
       const controller = new AbortController();
       activeRequestControllerRef.current = controller;
       setBusyLabel("Reading PDF...");
-      setError(null);
-      cancelRequestedRef.current = false;
-
-      const formData = new FormData();
-      formData.append("file", pdfSource);
-      formData.append("languageHint", languageHint);
 
       const response = await fetch("/api/lectures/pdf", {
         method: "POST",
@@ -695,9 +755,11 @@ export function NoteSourceModal({
       }
 
       onClose();
-      router.push(`/app/lectures/${payload.lectureId}`);
+      createdLectureIdRef.current = null;
+      router.push(`/app/lectures/${lectureId}`);
       router.refresh();
     } catch (submitError) {
+      await deleteCreatedLecture();
       if (!cancelRequestedRef.current) {
         setError(
           submitError instanceof Error
