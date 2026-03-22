@@ -80,6 +80,9 @@ export function CaptureStudio({
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
+  const activeRequestControllerRef = useRef<AbortController | null>(null);
+  const createdLectureIdRef = useRef<string | null>(null);
+  const cancelRequestedRef = useRef(false);
 
   const [consent, setConsent] = useState(false);
   const [source, setSource] = useState<CaptureSource | null>(null);
@@ -92,6 +95,7 @@ export function CaptureStudio({
   const [stage, setStage] = useState<
     "idle" | "creating" | "uploading" | "finalizing"
   >("idle");
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const recordingMimeType = useMemo(() => pickRecorderMimeType(), []);
 
@@ -112,6 +116,7 @@ export function CaptureStudio({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
+      activeRequestControllerRef.current?.abort();
     };
   }, []);
 
@@ -265,21 +270,24 @@ export function CaptureStudio({
       return;
     }
 
-    let createdLectureId: string | null = null;
     let processingStarted = false;
 
     try {
       const normalizedMimeType = normalizeMimeType(source.file.type || "audio/webm");
+      const createController = new AbortController();
+      activeRequestControllerRef.current = createController;
 
       setIsUploading(true);
       setStage("creating");
       setError(null);
+      cancelRequestedRef.current = false;
 
       const createResponse = await fetch("/api/lectures", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: createController.signal,
         body: JSON.stringify({
           mimeType: normalizedMimeType,
           size: source.file.size,
@@ -294,7 +302,15 @@ export function CaptureStudio({
         throw new Error(createData.error ?? "The lecture could not be created.");
       }
 
-      createdLectureId = createData.lectureId;
+      createdLectureIdRef.current = createData.lectureId;
+
+      if (cancelRequestedRef.current) {
+        await fetch(`/api/lectures/${createData.lectureId}`, {
+          method: "DELETE",
+        }).catch(() => null);
+        createdLectureIdRef.current = null;
+        return;
+      }
 
       setStage("uploading");
       const supabase = createSupabaseBrowserClient();
@@ -309,6 +325,16 @@ export function CaptureStudio({
         throw new Error(uploadResult.error.message);
       }
 
+      if (cancelRequestedRef.current) {
+        await fetch(`/api/lectures/${createData.lectureId}`, {
+          method: "DELETE",
+        }).catch(() => null);
+        createdLectureIdRef.current = null;
+        return;
+      }
+
+      const finalizeController = new AbortController();
+      activeRequestControllerRef.current = finalizeController;
       setStage("finalizing");
       const finalizeResponse = await fetch(
         `/api/lectures/${createData.lectureId}/finalize`,
@@ -317,6 +343,7 @@ export function CaptureStudio({
           headers: {
             "Content-Type": "application/json",
           },
+          signal: finalizeController.signal,
           body: JSON.stringify({
             path: createData.path,
           }),
@@ -332,24 +359,48 @@ export function CaptureStudio({
       }
 
       processingStarted = true;
+      createdLectureIdRef.current = null;
       router.push(`/app/lectures/${createData.lectureId}`);
       router.refresh();
     } catch (submitError) {
-      if (createdLectureId && !processingStarted) {
-        await fetch(`/api/lectures/${createdLectureId}`, {
+      if (createdLectureIdRef.current && !processingStarted) {
+        await fetch(`/api/lectures/${createdLectureIdRef.current}`, {
           method: "DELETE",
         }).catch(() => null);
+        createdLectureIdRef.current = null;
       }
 
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Processing could not be started.",
-      );
+      if (!cancelRequestedRef.current) {
+        setError(
+          submitError instanceof Error
+            ? submitError.message
+            : "Processing could not be started.",
+        );
+      }
     } finally {
+      activeRequestControllerRef.current = null;
       setIsUploading(false);
       setStage("idle");
+      setIsCancelling(false);
     }
+  }
+
+  async function handleCancelUpload() {
+    cancelRequestedRef.current = true;
+    activeRequestControllerRef.current?.abort();
+    setIsCancelling(true);
+
+    if (createdLectureIdRef.current) {
+      await fetch(`/api/lectures/${createdLectureIdRef.current}`, {
+        method: "DELETE",
+      }).catch(() => null);
+      createdLectureIdRef.current = null;
+    }
+
+    setIsUploading(false);
+    setStage("idle");
+    setIsCancelling(false);
+    setError("Creation cancelled.");
   }
 
   return (
@@ -506,18 +557,31 @@ export function CaptureStudio({
 
           {error ? <div className="danger-panel mt-5 px-4 py-3 text-sm">{error}</div> : null}
           <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!source || !consent || isUploading}
-              className="primary-button w-full px-5 py-3.5 text-sm sm:w-auto sm:min-w-64"
-            >
-              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {stage === "creating" && "Creating lecture"}
-              {stage === "uploading" && "Uploading audio"}
-              {stage === "finalizing" && "Starting processing"}
-              {stage === "idle" && "Create notes"}
-            </button>
+            <div className="flex w-full flex-col gap-3 sm:w-auto">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!source || !consent || isUploading}
+                className="primary-button w-full px-5 py-3.5 text-sm sm:w-auto sm:min-w-64"
+              >
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {stage === "creating" && "Creating lecture"}
+                {stage === "uploading" && "Uploading audio"}
+                {stage === "finalizing" && "Starting processing"}
+                {stage === "idle" && "Create notes"}
+              </button>
+              {isUploading ? (
+                <button
+                  type="button"
+                  onClick={() => void handleCancelUpload()}
+                  disabled={isCancelling}
+                  className="ios-secondary-button w-full sm:min-w-64"
+                >
+                  {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </div>
       </section>
     </div>

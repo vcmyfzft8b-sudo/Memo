@@ -144,6 +144,9 @@ export function NoteSourceModal({
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
+  const activeRequestControllerRef = useRef<AbortController | null>(null);
+  const createdLectureIdRef = useRef<string | null>(null);
+  const cancelRequestedRef = useRef(false);
 
   const recordingMimeType = useMemo(() => pickRecorderMimeType(), []);
 
@@ -158,6 +161,7 @@ export function NoteSourceModal({
   const [recordingSupported, setRecordingSupported] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     if (mode) {
@@ -226,19 +230,48 @@ export function NoteSourceModal({
     setElapsedSeconds(0);
     setError(null);
     setBusyLabel(null);
+    setIsCancelling(false);
+    activeRequestControllerRef.current = null;
+    createdLectureIdRef.current = null;
+    cancelRequestedRef.current = false;
   }, [clearAudioSource]);
 
-  const requestClose = useCallback(() => {
-    if (busyLabel) {
+  const deleteCreatedLecture = useCallback(async () => {
+    const lectureId = createdLectureIdRef.current;
+
+    if (!lectureId) {
       return;
     }
 
+    await fetch(`/api/lectures/${lectureId}`, {
+      method: "DELETE",
+    }).catch(() => null);
+    createdLectureIdRef.current = null;
+  }, []);
+
+  const handleCancelBusyAction = useCallback(async () => {
+    cancelRequestedRef.current = true;
+    activeRequestControllerRef.current?.abort();
+    setIsCancelling(true);
+    setBusyLabel((current) => current ?? "Cancelling...");
+    await deleteCreatedLecture();
+    setBusyLabel(null);
+    setIsCancelling(false);
+    setError("Creation cancelled.");
+  }, [deleteCreatedLecture]);
+
+  const requestClose = useCallback(() => {
     if (isRecording) {
       stopRecording();
     }
 
+    if (busyLabel) {
+      void handleCancelBusyAction();
+      return;
+    }
+
     onClose();
-  }, [busyLabel, isRecording, onClose]);
+  }, [busyLabel, handleCancelBusyAction, isRecording, onClose]);
 
   useEffect(() => {
     setRecordingSupported(typeof window !== "undefined" && "MediaRecorder" in window);
@@ -393,20 +426,23 @@ export function NoteSourceModal({
       return;
     }
 
-    let createdLectureId: string | null = null;
     let processingStarted = false;
 
     try {
       const normalizedMimeType = normalizeMimeType(audioSource.file.type || "audio/webm");
+      const createController = new AbortController();
+      activeRequestControllerRef.current = createController;
 
       setBusyLabel("Preparing...");
       setError(null);
+      cancelRequestedRef.current = false;
 
       const createResponse = await fetch("/api/lectures", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: createController.signal,
         body: JSON.stringify({
           mimeType: normalizedMimeType,
           size: audioSource.file.size,
@@ -421,7 +457,12 @@ export function NoteSourceModal({
         throw new Error(createData.error ?? "The lecture could not be created.");
       }
 
-      createdLectureId = createData.lectureId;
+      createdLectureIdRef.current = createData.lectureId;
+
+      if (cancelRequestedRef.current) {
+        await deleteCreatedLecture();
+        return;
+      }
 
       setBusyLabel("Uploading audio...");
       const supabase = createSupabaseBrowserClient();
@@ -436,12 +477,20 @@ export function NoteSourceModal({
         throw new Error(uploadResult.error.message);
       }
 
+      if (cancelRequestedRef.current) {
+        await deleteCreatedLecture();
+        return;
+      }
+
+      const finalizeController = new AbortController();
+      activeRequestControllerRef.current = finalizeController;
       setBusyLabel("Starting processing...");
       const finalizeResponse = await fetch(`/api/lectures/${createData.lectureId}/finalize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: finalizeController.signal,
         body: JSON.stringify({
           path: createData.path,
         }),
@@ -454,23 +503,26 @@ export function NoteSourceModal({
       }
 
       processingStarted = true;
+      createdLectureIdRef.current = null;
       onClose();
       router.push(`/app/lectures/${createData.lectureId}`);
       router.refresh();
     } catch (submitError) {
-      if (createdLectureId && !processingStarted) {
-        await fetch(`/api/lectures/${createdLectureId}`, {
-          method: "DELETE",
-        }).catch(() => null);
+      if (!processingStarted) {
+        await deleteCreatedLecture();
       }
 
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "The audio note could not be created.",
-      );
+      if (!cancelRequestedRef.current) {
+        setError(
+          submitError instanceof Error
+            ? submitError.message
+            : "The audio note could not be created.",
+        );
+      }
     } finally {
+      activeRequestControllerRef.current = null;
       setBusyLabel(null);
+      setIsCancelling(false);
     }
   }
 
@@ -481,14 +533,18 @@ export function NoteSourceModal({
     }
 
     try {
+      const controller = new AbortController();
+      activeRequestControllerRef.current = controller;
       setBusyLabel("Creating notes...");
       setError(null);
+      cancelRequestedRef.current = false;
 
       const response = await fetch("/api/lectures/text", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
         body: JSON.stringify({
           text: trimmedTextValue,
           languageHint,
@@ -505,13 +561,17 @@ export function NoteSourceModal({
       router.push(`/app/lectures/${payload.lectureId}`);
       router.refresh();
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "The text note could not be created.",
-      );
+      if (!cancelRequestedRef.current) {
+        setError(
+          submitError instanceof Error
+            ? submitError.message
+            : "The text note could not be created.",
+        );
+      }
     } finally {
+      activeRequestControllerRef.current = null;
       setBusyLabel(null);
+      setIsCancelling(false);
     }
   }
 
@@ -522,14 +582,18 @@ export function NoteSourceModal({
     }
 
     try {
+      const controller = new AbortController();
+      activeRequestControllerRef.current = controller;
       setBusyLabel("Reading page...");
       setError(null);
+      cancelRequestedRef.current = false;
 
       const response = await fetch("/api/lectures/link", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
         body: JSON.stringify({
           url: trimmedLinkValue,
           languageHint,
@@ -546,13 +610,17 @@ export function NoteSourceModal({
       router.push(`/app/lectures/${payload.lectureId}`);
       router.refresh();
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "The web note could not be created.",
-      );
+      if (!cancelRequestedRef.current) {
+        setError(
+          submitError instanceof Error
+            ? submitError.message
+            : "The web note could not be created.",
+        );
+      }
     } finally {
+      activeRequestControllerRef.current = null;
       setBusyLabel(null);
+      setIsCancelling(false);
     }
   }
 
@@ -593,8 +661,11 @@ export function NoteSourceModal({
     }
 
     try {
+      const controller = new AbortController();
+      activeRequestControllerRef.current = controller;
       setBusyLabel("Reading PDF...");
       setError(null);
+      cancelRequestedRef.current = false;
 
       const formData = new FormData();
       formData.append("file", pdfSource);
@@ -602,6 +673,7 @@ export function NoteSourceModal({
 
       const response = await fetch("/api/lectures/pdf", {
         method: "POST",
+        signal: controller.signal,
         body: formData,
       });
 
@@ -615,13 +687,17 @@ export function NoteSourceModal({
       router.push(`/app/lectures/${payload.lectureId}`);
       router.refresh();
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "The PDF note could not be created.",
-      );
+      if (!cancelRequestedRef.current) {
+        setError(
+          submitError instanceof Error
+            ? submitError.message
+            : "The PDF note could not be created.",
+        );
+      }
     } finally {
+      activeRequestControllerRef.current = null;
       setBusyLabel(null);
+      setIsCancelling(false);
     }
   }
 
@@ -647,7 +723,7 @@ export function NoteSourceModal({
               <button
                 type="button"
                 onClick={requestClose}
-                disabled={Boolean(busyLabel)}
+                disabled={isCancelling}
                 className="app-close-button ios-sheet-header-close"
                 aria-label="Close"
               >
@@ -750,6 +826,17 @@ export function NoteSourceModal({
                         )}
                         {busyLabel ?? "Generate"}
                       </button>
+                      {busyLabel ? (
+                        <button
+                          type="button"
+                          className="ios-secondary-button"
+                          disabled={isCancelling}
+                          onClick={() => void handleCancelBusyAction()}
+                        >
+                          {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                          Cancel
+                        </button>
+                      ) : null}
 
                       <button
                         type="button"
@@ -826,6 +913,17 @@ export function NoteSourceModal({
                     )}
                     {busyLabel ?? "Generate"}
                   </button>
+                  {busyLabel ? (
+                    <button
+                      type="button"
+                      className="ios-secondary-button"
+                      disabled={isCancelling}
+                      onClick={() => void handleCancelBusyAction()}
+                    >
+                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Cancel
+                    </button>
+                  ) : null}
                 </>
               ) : null}
 
@@ -858,6 +956,17 @@ export function NoteSourceModal({
                     )}
                     {busyLabel ?? "Generate"}
                   </button>
+                  {busyLabel ? (
+                    <button
+                      type="button"
+                      className="ios-secondary-button"
+                      disabled={isCancelling}
+                      onClick={() => void handleCancelBusyAction()}
+                    >
+                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Cancel
+                    </button>
+                  ) : null}
                 </>
               ) : null}
 
@@ -935,6 +1044,17 @@ export function NoteSourceModal({
                     )}
                     {busyLabel ?? "Generate"}
                   </button>
+                  {busyLabel ? (
+                    <button
+                      type="button"
+                      className="ios-secondary-button"
+                      disabled={isCancelling}
+                      onClick={() => void handleCancelBusyAction()}
+                    >
+                      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Cancel
+                    </button>
+                  ) : null}
                 </>
               ) : null}
 
