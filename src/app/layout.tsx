@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { ThemeController } from "@/components/theme-controller";
 import { BRAND_NAME } from "@/lib/brand";
 
 import "./globals.css";
@@ -37,7 +38,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <ThemeController />
+        {children}
+      </body>
     </html>
   );
 }

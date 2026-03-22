@@ -1,54 +1,14 @@
 "use client";
 
 import { Check, Monitor, Moon, Sun } from "lucide-react";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
-type ThemePreference = "system" | "light" | "dark";
-const THEME_EVENT = "nota-theme-change";
-
-function readStoredThemePreference(): ThemePreference {
-  if (typeof window === "undefined") {
-    return "system";
-  }
-
-  const stored = window.localStorage.getItem("nota-theme");
-  return stored === "light" || stored === "dark" ? stored : "system";
-}
-
-function applyTheme(preference: ThemePreference) {
-  if (preference === "system") {
-    document.documentElement.removeAttribute("data-theme");
-    document.documentElement.style.colorScheme = "";
-    localStorage.removeItem("nota-theme");
-    window.dispatchEvent(new Event(THEME_EVENT));
-    return;
-  }
-
-  document.documentElement.dataset.theme = preference;
-  document.documentElement.style.colorScheme = preference;
-  localStorage.setItem("nota-theme", preference);
-  window.dispatchEvent(new Event(THEME_EVENT));
-}
-
-function subscribeToThemePreference(onStoreChange: () => void) {
-  if (typeof window === "undefined") {
-    return () => undefined;
-  }
-
-  function handleStorage(event: StorageEvent) {
-    if (event.key === null || event.key === "nota-theme") {
-      onStoreChange();
-    }
-  }
-
-  window.addEventListener("storage", handleStorage);
-  window.addEventListener(THEME_EVENT, onStoreChange);
-
-  return () => {
-    window.removeEventListener("storage", handleStorage);
-    window.removeEventListener(THEME_EVENT, onStoreChange);
-  };
-}
+import type { ThemePreference } from "@/lib/theme";
+import {
+  applyTheme,
+  readStoredThemePreference,
+  subscribeToThemePreference,
+} from "@/lib/theme";
 
 const OPTIONS: Array<{
   value: ThemePreference;
@@ -78,37 +38,13 @@ export function ThemeSettings() {
     readStoredThemePreference,
     () => "system",
   );
-  const pendingCommitTimerRef = useRef<number | null>(null);
-  const queuedPreferenceRef = useRef<ThemePreference | null>(null);
-
-  function clearPendingCommit() {
-    if (pendingCommitTimerRef.current !== null) {
-      window.clearTimeout(pendingCommitTimerRef.current);
-      pendingCommitTimerRef.current = null;
-    }
-
-    queuedPreferenceRef.current = null;
-  }
-
-  useEffect(() => {
-    return () => {
-      clearPendingCommit();
-    };
-  }, []);
 
   function updatePreference(next: ThemePreference) {
-    if (next === preference || queuedPreferenceRef.current === next) {
+    if (next === preference) {
       return;
     }
 
-    clearPendingCommit();
-    queuedPreferenceRef.current = next;
-
-    pendingCommitTimerRef.current = window.setTimeout(() => {
-      pendingCommitTimerRef.current = null;
-      queuedPreferenceRef.current = null;
-      applyTheme(next);
-    }, 220);
+    applyTheme(next);
   }
 
   return (
