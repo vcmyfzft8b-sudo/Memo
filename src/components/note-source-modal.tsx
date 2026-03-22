@@ -884,6 +884,23 @@ export function NoteSourceModal({
                     </div>
                   ) : null}
 
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handlePdfPick}
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    className="ios-secondary-button"
+                    disabled={Boolean(busyLabel)}
+                    onClick={() => pdfInputRef.current?.click()}
+                  >
+                    {pdfSource ? "Choose another PDF" : "Use PDF instead of text"}
+                  </button>
+
                   <button
                     type="button"
                     className="ios-primary-button"
@@ -903,23 +920,6 @@ export function NoteSourceModal({
                       <FileUp className="h-4 w-4" />
                     )}
                     {busyLabel ?? "Generate"}
-                  </button>
-
-                  <input
-                    ref={pdfInputRef}
-                    type="file"
-                    accept="application/pdf"
-                    onChange={handlePdfPick}
-                    className="hidden"
-                  />
-
-                  <button
-                    type="button"
-                    className="ios-secondary-button"
-                    disabled={Boolean(busyLabel)}
-                    onClick={() => pdfInputRef.current?.click()}
-                  >
-                    {pdfSource ? "Choose another PDF" : "Use PDF instead of text"}
                   </button>
                 </>
               ) : null}
