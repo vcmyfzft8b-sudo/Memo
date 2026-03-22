@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ChevronLeft,
   CircleHelp,
@@ -12,6 +11,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { BrandLogo } from "@/components/brand-logo";
+import { InstantLink } from "@/components/instant-link";
 import { BRAND_NAME } from "@/lib/brand";
 
 const TAB_ITEMS = [
@@ -82,30 +82,30 @@ export function AppShell({
   return (
     <div className="ios-app-shell desktop-shell">
       <div className="desktop-brandline">
-        <Link href="/app" className="desktop-brandline-brand">
+        <InstantLink href="/app" className="desktop-brandline-brand">
           <BrandLogo compact />
-        </Link>
+        </InstantLink>
 
         <div className="desktop-brandline-actions">
           {chrome.backHref ? (
-            <Link href={chrome.backHref} className="app-back-button desktop-brandline-back">
+            <InstantLink href={chrome.backHref} className="app-back-button desktop-brandline-back">
               <ChevronLeft className="h-5 w-5" />
               Back
-            </Link>
+            </InstantLink>
           ) : null}
         </div>
       </div>
 
       <aside className="desktop-sidebar">
         <div className="desktop-sidebar-inner">
-          <Link href="/app" className="nota-sidebar-brand">
+          <InstantLink href="/app" className="nota-sidebar-brand">
             <BrandLogo />
-          </Link>
+          </InstantLink>
 
-          <Link href="/app?mode=record" className="nota-sidebar-cta">
+          <InstantLink href="/app?mode=record" className="nota-sidebar-cta">
             <FilePlus2 className="h-4 w-4" />
             New note
-          </Link>
+          </InstantLink>
 
           <nav className="desktop-sidebar-nav" aria-label="Sidebar navigation">
             {TAB_ITEMS.map((item) => {
@@ -115,17 +115,17 @@ export function AppShell({
                   : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
               return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`desktop-sidebar-link ${active ? "active" : ""}`}
-                aria-current={active ? "page" : undefined}
-              >
-                <span className="desktop-sidebar-link-icon">
-                  <item.icon className="h-4 w-4" />
-                </span>
+                <InstantLink
+                  key={item.href}
+                  href={item.href}
+                  className={`desktop-sidebar-link ${active ? "active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <span className="desktop-sidebar-link-icon">
+                    <item.icon className="h-4 w-4" />
+                  </span>
                   <span>{item.displayLabel}</span>
-                </Link>
+                </InstantLink>
               );
             })}
           </nav>
@@ -135,9 +135,9 @@ export function AppShell({
       <div className="desktop-main">
         <header className="ios-nav app-topbar">
           <div className="ios-nav-inner app-topbar-inner">
-            <Link href="/app" className="app-topbar-brand" aria-label={`${BRAND_NAME} home`}>
+            <InstantLink href="/app" className="app-topbar-brand" aria-label={`${BRAND_NAME} home`}>
               <BrandLogo compact />
-            </Link>
+            </InstantLink>
 
             <div className="app-topbar-copy">
               <div className="app-topbar-title">{chrome.title}</div>
@@ -146,18 +146,18 @@ export function AppShell({
 
             {chrome.backHref ? (
               <div className="ios-nav-actions">
-                <Link href={chrome.backHref} className="app-back-button">
+                <InstantLink href={chrome.backHref} className="app-back-button">
                   <ChevronLeft className="h-5 w-5" />
                   Back
-                </Link>
+                </InstantLink>
               </div>
             ) : null}
 
             <div className="ios-nav-actions app-topbar-actions">
-              <Link href="/app?mode=record" className="app-topbar-cta">
+              <InstantLink href="/app?mode=record" className="app-topbar-cta">
                 <FilePlus2 className="h-4 w-4" />
                 <span>New note</span>
-              </Link>
+              </InstantLink>
             </div>
           </div>
         </header>
@@ -174,7 +174,7 @@ export function AppShell({
                 : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
             return (
-              <Link
+              <InstantLink
                 key={item.href}
                 href={item.href}
                 className={`ios-tab-item ${active ? "active" : ""}`}
@@ -182,7 +182,7 @@ export function AppShell({
               >
                 <item.icon className="h-5 w-5" />
                 <span>{item.displayLabel}</span>
-              </Link>
+              </InstantLink>
             );
           })}
         </div>
