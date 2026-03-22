@@ -199,6 +199,26 @@ function quizStageLabel(stage: unknown) {
   return "Preparing quiz";
 }
 
+function studyAssetStatusLabel(status: StudyAssetStatus | null | undefined) {
+  if (status === "queued") {
+    return "Preparing";
+  }
+
+  if (status === "generating") {
+    return "Generating";
+  }
+
+  if (status === "failed") {
+    return "Failed";
+  }
+
+  if (status === "ready") {
+    return "Ready";
+  }
+
+  return null;
+}
+
 function isLegacySectionId(value: string) {
   return value.startsWith("legacy-");
 }
@@ -469,8 +489,7 @@ export function LectureWorkspace({
       : 0;
   const activeMaterialStatus =
     activeStudyView === "flashcards" ? detail.studyAsset?.status : detail.quizAsset?.status;
-  const activeMaterialStageCopy =
-    activeStudyView === "flashcards" ? studyStageCopy : quizStageCopy;
+  const activeMaterialStatusLabel = studyAssetStatusLabel(activeMaterialStatus);
 
   async function handleRetry() {
     setIsRetrying(true);
@@ -866,12 +885,11 @@ export function LectureWorkspace({
             <div className="lecture-study-header">
               <div className="lecture-study-title">
                 <p className="lecture-card-label">Study</p>
-                {activeMaterialStatus ? (
+                {activeMaterialStatus && activeMaterialStatusLabel ? (
                   <div className="lecture-study-meta">
                     <span className={`lecture-study-status ${activeMaterialStatus}`}>
-                      {activeMaterialStatus}
+                      {activeMaterialStatusLabel}
                     </span>
-                    <span className="lecture-study-meta-copy">{activeMaterialStageCopy}</span>
                   </div>
                 ) : null}
               </div>

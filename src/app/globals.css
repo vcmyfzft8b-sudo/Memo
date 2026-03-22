@@ -2650,6 +2650,7 @@ select:disabled {
   align-items: center;
   min-height: 1.75rem;
   padding: 0 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--separator-strong) 65%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface-muted) 92%, transparent);
   color: var(--secondary-label);
@@ -2659,19 +2660,23 @@ select:disabled {
   text-transform: uppercase;
 }
 
+.lecture-study-status.queued,
+.lecture-study-status.generating {
+  border-color: color-mix(in srgb, var(--tint) 28%, transparent);
+  background: color-mix(in srgb, var(--tint-soft) 92%, transparent);
+  color: var(--tint);
+}
+
 .lecture-study-status.ready {
+  border-color: color-mix(in srgb, var(--green) 28%, transparent);
   background: var(--green-soft);
   color: var(--green);
 }
 
 .lecture-study-status.failed {
+  border-color: color-mix(in srgb, var(--red) 28%, transparent);
   background: var(--red-soft);
   color: var(--red);
-}
-
-.lecture-study-meta-copy {
-  color: var(--secondary-label);
-  font-size: 0.88rem;
 }
 
 .lecture-study-completion {
