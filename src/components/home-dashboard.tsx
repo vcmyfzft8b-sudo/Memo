@@ -400,9 +400,6 @@ export function HomeDashboard({
           <div className="dashboard-section-heading">
             <h2 className="dashboard-section-title">New note</h2>
           </div>
-          <p className="dashboard-section-lead">
-            Record audio, upload audio, paste text or PDF, or add a link.
-          </p>
 
           <div className="note-action-grid">
             {QUICK_ACTIONS.map((action) => (
