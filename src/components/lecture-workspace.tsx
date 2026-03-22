@@ -969,9 +969,6 @@ export function LectureWorkspace({
                         <div className="lecture-flashcard-face lecture-flashcard-face-front">
                           <div className="lecture-flashcard-face-meta">
                             <span>Flashcard</span>
-                            <span className={`lecture-flashcard-difficulty ${currentFlashcard.difficulty}`}>
-                              {currentFlashcard.difficulty}
-                            </span>
                           </div>
                           <p className="lecture-flashcard-content">{currentFlashcard.front}</p>
                           <p className="lecture-flashcard-hintline">
@@ -1190,17 +1187,6 @@ export function LectureWorkspace({
                 </div>
 
                 <div className="lecture-quiz-card">
-                  <div className="lecture-quiz-card-header">
-                    <span className={`lecture-flashcard-difficulty ${activeQuizQuestion.difficulty}`}>
-                      {activeQuizQuestion.difficulty}
-                    </span>
-                    {activeQuizQuestion.source_locator ? (
-                      <span className="lecture-flashcard-citation lecture-flashcard-citation-primary">
-                        {activeQuizQuestion.source_locator}
-                      </span>
-                    ) : null}
-                  </div>
-
                   <p className="lecture-quiz-prompt">{activeQuizQuestion.prompt}</p>
 
                   <div className="lecture-quiz-options">
