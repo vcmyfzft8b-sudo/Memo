@@ -1929,9 +1929,11 @@ select:disabled {
     top: auto;
     left: auto;
     right: auto;
+    z-index: 1;
     display: grid;
     width: 100%;
     margin-top: 0.85rem;
+    margin-bottom: calc(env(safe-area-inset-bottom) + 6.75rem);
     padding: 1rem;
     border-radius: 28px;
     box-shadow: var(--shadow-soft);
