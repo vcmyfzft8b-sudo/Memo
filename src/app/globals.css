@@ -3810,7 +3810,12 @@ select:disabled {
   inset: 0;
   z-index: 5;
   pointer-events: none;
-  animation: lecture-flashcard-exit-swipe 0.74s cubic-bezier(0.2, 0.72, 0.2, 1) forwards;
+  transform: translateZ(0);
+  transform-origin: center center;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  animation: lecture-flashcard-exit-swipe 0.74s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
 }
 
 .lecture-flashcard-exit-card.again {
@@ -3847,6 +3852,8 @@ select:disabled {
   border-radius: 24px;
   color: white;
   opacity: 1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .lecture-flashcard-exit-card.easy .lecture-flashcard-exit-overlay {
