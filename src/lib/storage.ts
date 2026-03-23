@@ -1,11 +1,22 @@
-import { STORAGE_BUCKET, SUPPORTED_AUDIO_MIME_TYPES } from "@/lib/constants";
+import {
+  STORAGE_BUCKET,
+  SUPPORTED_AUDIO_MIME_TYPES,
+} from "@/lib/constants";
 
 const mimeTypeAliasMap = new Map<string, string>([
   ["audio/mp3", "audio/mpeg"],
+  ["audio/mpga", "audio/mpeg"],
+  ["audio/mpeg3", "audio/mpeg"],
   ["audio/x-m4a", "audio/m4a"],
+  ["audio/x-aac", "audio/aac"],
+  ["audio/x-wav", "audio/wav"],
   ["video/mp4", "audio/mp4"],
   ["video/webm", "audio/webm"],
   ["video/ogg", "audio/ogg"],
+  ["application/ogg", "audio/ogg"],
+  ["audio/x-flac", "audio/flac"],
+  ["audio/x-aiff", "audio/aiff"],
+  ["audio/x-caf", "audio/x-caf"],
 ]);
 
 const extensionMap = new Map<string, string>([
@@ -17,7 +28,34 @@ const extensionMap = new Map<string, string>([
   ["audio/wav", "wav"],
   ["audio/webm", "webm"],
   ["audio/ogg", "ogg"],
+  ["audio/opus", "opus"],
+  ["audio/flac", "flac"],
+  ["audio/aiff", "aiff"],
+  ["audio/x-caf", "caf"],
 ]);
+
+const extensionToMimeTypeMap = new Map<string, string>([
+  ["mp3", "audio/mpeg"],
+  ["mpga", "audio/mpeg"],
+  ["mpeg", "audio/mpeg"],
+  ["m4a", "audio/m4a"],
+  ["mp4", "audio/mp4"],
+  ["aac", "audio/aac"],
+  ["wav", "audio/wav"],
+  ["webm", "audio/webm"],
+  ["ogg", "audio/ogg"],
+  ["oga", "audio/ogg"],
+  ["opus", "audio/opus"],
+  ["flac", "audio/flac"],
+  ["caf", "audio/x-caf"],
+  ["aif", "audio/aiff"],
+  ["aiff", "audio/aiff"],
+]);
+
+function getExtensionFromFileName(fileName: string) {
+  const match = /\.([a-z0-9]+)$/i.exec(fileName.trim());
+  return match?.[1]?.toLowerCase() ?? "";
+}
 
 export function normalizeMimeType(mimeType: string) {
   const normalized = mimeType.toLowerCase().trim();
@@ -26,10 +64,40 @@ export function normalizeMimeType(mimeType: string) {
   return mimeTypeAliasMap.get(baseType) ?? baseType;
 }
 
-export function isSupportedAudioMimeType(mimeType: string) {
+export function inferAudioMimeTypeFromFile(params: {
+  mimeType: string;
+  fileName?: string | null;
+}) {
+  const normalizedMimeType = normalizeMimeType(params.mimeType);
+
+  if (
+    normalizedMimeType &&
+    normalizedMimeType !== "application/octet-stream" &&
+    normalizedMimeType !== "binary/octet-stream"
+  ) {
+    return normalizedMimeType;
+  }
+
+  const extension = getExtensionFromFileName(params.fileName ?? "");
+  return extensionToMimeTypeMap.get(extension) ?? normalizedMimeType;
+}
+
+export function isSupportedAudioMimeType(mimeType: string, fileName?: string | null) {
+  const normalizedMimeType = inferAudioMimeTypeFromFile({
+    mimeType,
+    fileName,
+  });
+
   return SUPPORTED_AUDIO_MIME_TYPES.includes(
-    normalizeMimeType(mimeType) as (typeof SUPPORTED_AUDIO_MIME_TYPES)[number],
+    normalizedMimeType as (typeof SUPPORTED_AUDIO_MIME_TYPES)[number],
   );
+}
+
+export function normalizeUploadAudioMimeType(params: {
+  mimeType: string;
+  fileName?: string | null;
+}) {
+  return inferAudioMimeTypeFromFile(params);
 }
 
 export function getExtensionForMimeType(mimeType: string) {

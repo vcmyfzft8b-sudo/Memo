@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createAudioLectureWithProcessingChunks } from "@/lib/audio-lecture-upload";
-import { MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS } from "@/lib/constants";
+import { AUDIO_FILE_INPUT_ACCEPT, MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS } from "@/lib/constants";
 import { getExtensionForMimeType, normalizeMimeType } from "@/lib/storage";
 import { cn, formatTimestamp } from "@/lib/utils";
 
@@ -481,7 +481,7 @@ export function CaptureStudio({
 
                 <input
                   type="file"
-                  accept="audio/*"
+                  accept={AUDIO_FILE_INPUT_ACCEPT}
                   onChange={handleFileChange}
                   className="hidden"
                   disabled={!consent || isUploading}

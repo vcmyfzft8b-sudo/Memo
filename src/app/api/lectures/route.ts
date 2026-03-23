@@ -3,11 +3,16 @@ import { z } from "zod";
 
 import { parseAudioChunkManifest } from "@/lib/audio-processing";
 import { MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS } from "@/lib/constants";
-import { buildLectureStoragePath, isSupportedAudioMimeType, normalizeMimeType } from "@/lib/storage";
+import {
+  buildLectureStoragePath,
+  isSupportedAudioMimeType,
+  normalizeUploadAudioMimeType,
+} from "@/lib/storage";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 const createLectureSchema = z.object({
   mimeType: z.string().min(1),
+  fileName: z.string().trim().min(1).max(255).optional(),
   size: z.number().int().positive().max(MAX_AUDIO_BYTES),
   durationSeconds: z.number().positive().max(MAX_AUDIO_SECONDS),
   languageHint: z.string().trim().min(2).max(10).default("sl"),
@@ -37,9 +42,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const mimeType = normalizeMimeType(parsed.data.mimeType);
+  const mimeType = normalizeUploadAudioMimeType({
+    mimeType: parsed.data.mimeType,
+    fileName: parsed.data.fileName,
+  });
 
-  if (!isSupportedAudioMimeType(mimeType)) {
+  if (!isSupportedAudioMimeType(mimeType, parsed.data.fileName)) {
     return NextResponse.json(
       { error: "Unsupported audio format." },
       { status: 400 },

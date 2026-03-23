@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { createAudioLectureWithProcessingChunks } from "@/lib/audio-lecture-upload";
 import { BRAND_NAME } from "@/lib/brand";
 import {
+  AUDIO_FILE_INPUT_ACCEPT,
   MAX_AUDIO_BYTES,
   MAX_AUDIO_SECONDS,
   MAX_PDF_BYTES,
@@ -902,7 +903,7 @@ export function NoteSourceModal({
                   <input
                     ref={uploadInputRef}
                     type="file"
-                    accept="audio/*"
+                    accept={AUDIO_FILE_INPUT_ACCEPT}
                     onChange={handleUploadFileChange}
                     className="hidden"
                   />

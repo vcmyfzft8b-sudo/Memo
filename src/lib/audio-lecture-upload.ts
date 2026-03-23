@@ -6,7 +6,7 @@ import {
   type AudioChunkManifest,
 } from "@/lib/audio-processing";
 import { createAudioProcessingChunks } from "@/lib/audio-processing-client";
-import { normalizeMimeType } from "@/lib/storage";
+import { normalizeUploadAudioMimeType } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { CreateLectureResponse } from "@/lib/types";
 
@@ -39,7 +39,10 @@ export async function createAudioLectureWithProcessingChunks(params: {
   onLectureCreated?: (lectureId: string) => void;
   signal?: AbortSignal;
 }) {
-  const normalizedMimeType = normalizeMimeType(params.file.type || "audio/webm");
+  const normalizedMimeType = normalizeUploadAudioMimeType({
+    mimeType: params.file.type || "application/octet-stream",
+    fileName: params.file.name,
+  });
   const supabase = createSupabaseBrowserClient();
 
   assertNotAborted(params.signal);
@@ -53,6 +56,7 @@ export async function createAudioLectureWithProcessingChunks(params: {
     signal: params.signal,
     body: JSON.stringify({
       mimeType: normalizedMimeType,
+      fileName: params.file.name,
       size: params.file.size,
       durationSeconds: Math.max(params.durationSeconds, 1),
       languageHint: params.languageHint,
