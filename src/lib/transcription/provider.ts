@@ -1,13 +1,21 @@
 import "server-only";
 
-import { getAiProvider } from "@/lib/server-env";
+import { getTranscriptionProviderName } from "@/lib/server-env";
 import { OpenAiTranscriptionProvider } from "@/lib/transcription/openai";
 import { GeminiTranscriptionProvider } from "@/lib/transcription/gemini";
+import { SonioxTranscriptionProvider } from "@/lib/transcription/soniox";
 import type { TranscriptionProvider } from "@/lib/transcription/types";
 
 const openAiProvider = new OpenAiTranscriptionProvider();
 const geminiProvider = new GeminiTranscriptionProvider();
+const sonioxProvider = new SonioxTranscriptionProvider();
 
 export function getTranscriptionProvider(): TranscriptionProvider {
-  return getAiProvider() === "gemini" ? geminiProvider : openAiProvider;
+  const provider = getTranscriptionProviderName();
+
+  if (provider === "soniox") {
+    return sonioxProvider;
+  }
+
+  return provider === "gemini" ? geminiProvider : openAiProvider;
 }
