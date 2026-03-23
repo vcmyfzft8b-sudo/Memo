@@ -25,7 +25,7 @@ const plannerConceptSchema = z.object({
   studyValue: z.enum(["high", "medium", "low"]),
   recommendedCardCount: z.number().int().min(1).max(3),
   preferredCardStyle: z.enum(["recall", "explain", "compare", "apply", "sequence"]),
-  supportingExcerpt: z.string().min(12).max(220),
+  supportingExcerpt: z.string().min(12),
 });
 
 const plannerUnitSchema = z.object({
