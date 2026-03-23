@@ -5,8 +5,12 @@ import type { FFFSType } from "@ffmpeg/ffmpeg";
 
 import {
   buildChunkWindows,
-  CLIENT_AUDIO_CHUNK_MIME_TYPE,
+  CLIENT_AUDIO_CHUNK_FALLBACK_MIME_TYPE,
 } from "@/lib/audio-processing";
+import {
+  getExtensionForMimeType,
+  normalizeUploadAudioMimeType,
+} from "@/lib/storage";
 
 type PreparedAudioChunk = {
   index: number;
@@ -19,6 +23,40 @@ type PreparedAudioChunk = {
 
 let ffmpegPromise: Promise<FFmpeg> | null = null;
 const WORKER_FS_TYPE = "WORKERFS" as FFFSType;
+const COPYABLE_AUDIO_MIME_TYPES = new Set([
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/m4a",
+  "audio/aac",
+  "audio/wav",
+  "audio/webm",
+  "audio/ogg",
+  "audio/opus",
+  "audio/flac",
+  "audio/aiff",
+  "audio/x-caf",
+]);
+
+function resolveChunkOutputFormat(file: File) {
+  const normalizedMimeType = normalizeUploadAudioMimeType({
+    mimeType: file.type || "application/octet-stream",
+    fileName: file.name,
+  });
+
+  if (COPYABLE_AUDIO_MIME_TYPES.has(normalizedMimeType)) {
+    return {
+      mimeType: normalizedMimeType,
+      extension: getExtensionForMimeType(normalizedMimeType),
+      codecArgs: ["-c:a", "copy"],
+    };
+  }
+
+  return {
+    mimeType: CLIENT_AUDIO_CHUNK_FALLBACK_MIME_TYPE,
+    extension: getExtensionForMimeType(CLIENT_AUDIO_CHUNK_FALLBACK_MIME_TYPE),
+    codecArgs: ["-ac", "1", "-ar", "16000", "-b:a", "48k", "-c:a", "libmp3lame"],
+  };
+}
 
 async function getFfmpeg() {
   if (!ffmpegPromise) {
@@ -50,6 +88,7 @@ export async function createAudioProcessingChunks(params: {
   const mountedInputFileName = params.file.name || `lecture-${Date.now()}.bin`;
   const windows = buildChunkWindows(params.durationSeconds);
   const chunks: PreparedAudioChunk[] = [];
+  const outputFormat = resolveChunkOutputFormat(params.file);
 
   const assertNotAborted = () => {
     if (params.signal?.aborted) {
@@ -70,24 +109,19 @@ export async function createAudioProcessingChunks(params: {
         `Preparing audio chunks (${window.index + 1}/${windows.length})...`,
       );
 
-      const outputFileName = `chunk-${window.index}.wav`;
+      const outputFileName = `chunk-${window.index}.${outputFormat.extension}`;
       const outputPath = `${outputDirectory}/${outputFileName}`;
       const exitCode = await ffmpeg.exec([
-        "-i",
-        `${inputDirectory}/${mountedInputFileName}`,
         "-ss",
         window.startSeconds.toString(),
         "-t",
         window.durationSeconds.toString(),
+        "-i",
+        `${inputDirectory}/${mountedInputFileName}`,
         "-map",
         "0:a:0",
         "-vn",
-        "-ac",
-        "1",
-        "-ar",
-        "16000",
-        "-c:a",
-        "pcm_s16le",
+        ...outputFormat.codecArgs,
         outputPath,
       ]);
 
@@ -104,12 +138,12 @@ export async function createAudioProcessingChunks(params: {
       chunks.push({
         index: window.index,
         file: new File([chunkBytes.slice().buffer], outputFileName, {
-          type: CLIENT_AUDIO_CHUNK_MIME_TYPE,
+          type: outputFormat.mimeType,
         }),
         startMs: window.startMs,
         endMs: window.endMs,
         durationSeconds: window.durationSeconds,
-        mimeType: CLIENT_AUDIO_CHUNK_MIME_TYPE,
+        mimeType: outputFormat.mimeType,
       });
 
       await ffmpeg.deleteFile(outputPath);

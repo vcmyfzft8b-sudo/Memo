@@ -1,10 +1,10 @@
 import type { Json } from "@/lib/database.types";
 
-export const CLIENT_AUDIO_CHUNK_THRESHOLD_SECONDS = 30 * 60;
-export const CLIENT_AUDIO_CHUNK_THRESHOLD_BYTES = 35 * 1024 * 1024;
-export const CLIENT_AUDIO_CHUNK_DURATION_SECONDS = 12 * 60;
-export const CLIENT_AUDIO_CHUNK_OVERLAP_SECONDS = 15;
-export const CLIENT_AUDIO_CHUNK_MIME_TYPE = "audio/wav";
+export const CLIENT_AUDIO_CHUNK_THRESHOLD_SECONDS = 14 * 60;
+export const CLIENT_AUDIO_CHUNK_THRESHOLD_BYTES = 12 * 1024 * 1024;
+export const CLIENT_AUDIO_CHUNK_DURATION_SECONDS = 8 * 60;
+export const CLIENT_AUDIO_CHUNK_OVERLAP_SECONDS = 20;
+export const CLIENT_AUDIO_CHUNK_FALLBACK_MIME_TYPE = "audio/mpeg";
 
 export type AudioChunkManifest = {
   index: number;
