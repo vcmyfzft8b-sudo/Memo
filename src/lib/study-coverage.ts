@@ -11,20 +11,10 @@ const UNIT_PLAN_CONCURRENCY = 2;
 const plannerConceptSchema = z.object({
   conceptKey: z.string().min(3).max(80),
   conceptLabel: z.string().min(3).max(120),
-  conceptType: z.enum([
-    "definition",
-    "process",
-    "comparison",
-    "cause_effect",
-    "example",
-    "term",
-    "sequence",
-    "formula",
-    "warning",
-  ]),
+  conceptType: z.string().min(3).max(40),
   studyValue: z.enum(["high", "medium", "low"]),
   recommendedCardCount: z.number().int().min(1).max(3),
-  preferredCardStyle: z.enum(["recall", "explain", "compare", "apply", "sequence"]),
+  preferredCardStyle: z.string().min(3).max(40),
   supportingExcerpt: z.string().min(12),
 });
 
@@ -33,12 +23,14 @@ const plannerUnitSchema = z.object({
   sectionIndex: z.number().int().nonnegative(),
   sectionTitle: z.string().min(2).max(160),
   importance: z.enum(["high", "medium", "low"]),
-  concepts: z.array(plannerConceptSchema).max(10),
+  concepts: z.array(plannerConceptSchema),
 });
 
 const plannerBatchSchema = z.object({
   units: z.array(plannerUnitSchema).min(1).max(UNIT_BATCH_SIZE),
 });
+
+type PlannerUnitDraft = z.infer<typeof plannerUnitSchema>;
 
 function slugify(value: string) {
   return value
@@ -102,6 +94,58 @@ function fallbackCardStyle(type: CoverageConceptType): CoverageCardKind {
   return "recall";
 }
 
+function normalizeConceptType(value: string): CoverageConceptType {
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "definition" ||
+    normalized === "process" ||
+    normalized === "comparison" ||
+    normalized === "cause_effect" ||
+    normalized === "example" ||
+    normalized === "term" ||
+    normalized === "sequence" ||
+    normalized === "formula" ||
+    normalized === "warning"
+  ) {
+    return normalized;
+  }
+
+  return fallbackConceptType(value);
+}
+
+function normalizeCardStyle(value: string, conceptType: CoverageConceptType): CoverageCardKind {
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "recall" ||
+    normalized === "explain" ||
+    normalized === "compare" ||
+    normalized === "apply" ||
+    normalized === "sequence"
+  ) {
+    return normalized;
+  }
+
+  if (normalized === "definition" || normalized === "term") {
+    return "recall";
+  }
+
+  if (normalized === "process") {
+    return "sequence";
+  }
+
+  if (normalized === "comparison") {
+    return "compare";
+  }
+
+  if (normalized === "example") {
+    return "apply";
+  }
+
+  return fallbackCardStyle(conceptType);
+}
+
 function buildFallbackConcept(unit: SourceUnit): CoverageConcept {
   const excerpt = unit.text.split(/(?<=[.!?])\s+/).find(Boolean) ?? unit.text.slice(0, 180);
   const conceptType = fallbackConceptType(unit.text);
@@ -117,7 +161,7 @@ function buildFallbackConcept(unit: SourceUnit): CoverageConcept {
   };
 }
 
-function normalizeUnitPlan(unit: SourceUnit, plan: CoverageUnitPlan | undefined): CoverageUnitPlan {
+function normalizeUnitPlan(unit: SourceUnit, plan: PlannerUnitDraft | CoverageUnitPlan | undefined): CoverageUnitPlan {
   if (!plan) {
     return {
       unitIndex: unit.unitIndex,
@@ -133,11 +177,18 @@ function normalizeUnitPlan(unit: SourceUnit, plan: CoverageUnitPlan | undefined)
     sectionIndex: unit.sectionIndex,
     sectionTitle: plan.sectionTitle || unit.sectionTitle,
     importance: plan.importance || unit.importance,
-    concepts: plan.concepts.map((concept, index) => ({
-      ...concept,
-      conceptKey: concept.conceptKey || `${unit.unitIndex}-${slugify(concept.conceptLabel) || index}`,
-      recommendedCardCount: Math.min(Math.max(concept.recommendedCardCount, 1), 2),
-    })),
+    concepts: plan.concepts.slice(0, 16).map((concept, index) => {
+      const conceptType = normalizeConceptType(concept.conceptType);
+
+      return {
+        ...concept,
+        conceptType,
+        preferredCardStyle: normalizeCardStyle(concept.preferredCardStyle, conceptType),
+        conceptKey:
+          concept.conceptKey || `${unit.unitIndex}-${slugify(concept.conceptLabel) || index}`,
+        recommendedCardCount: Math.min(Math.max(concept.recommendedCardCount, 1), 2),
+      };
+    }),
   };
 }
 
@@ -220,7 +271,13 @@ export async function createCoveragePlan(params: {
 
   for (const batch of plannedBatches) {
     for (const unitPlan of batch.units) {
-      planByUnit.set(unitPlan.unitIndex, unitPlan);
+      const sourceUnit = params.units.find((unit) => unit.unitIndex === unitPlan.unitIndex);
+
+      if (!sourceUnit) {
+        continue;
+      }
+
+      planByUnit.set(unitPlan.unitIndex, normalizeUnitPlan(sourceUnit, unitPlan));
     }
   }
 

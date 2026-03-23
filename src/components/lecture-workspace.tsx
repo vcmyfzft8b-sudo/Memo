@@ -96,6 +96,30 @@ function shouldPollAsset(status: StudyAssetStatus | null | undefined) {
   return status === "queued" || status === "generating";
 }
 
+function shouldPollDetail(detail: LectureDetail) {
+  if (shouldPollLecture(detail.lecture.status)) {
+    return true;
+  }
+
+  if (detail.lecture.status === "ready" && !detail.artifact) {
+    return true;
+  }
+
+  if (shouldPollAsset(detail.studyAsset?.status) || shouldPollAsset(detail.quizAsset?.status)) {
+    return true;
+  }
+
+  if (detail.studyAsset?.status === "ready" && detail.flashcards.length === 0) {
+    return true;
+  }
+
+  if (detail.quizAsset?.status === "ready" && detail.quizQuestions.length === 0) {
+    return true;
+  }
+
+  return false;
+}
+
 function confidenceLabel(value: FlashcardConfidenceBucket) {
   if (value === "again") {
     return "Didn't know";
@@ -362,6 +386,7 @@ export function LectureWorkspace({
   );
   const currentReviewFlashcardId = reviewQueue[0] ?? null;
   const showsTranscript = detail.lecture.source_type === "audio";
+  const shouldPollCurrentDetail = shouldPollDetail(detail);
 
   useEffect(() => {
     setDetail(initialDetail);
@@ -380,26 +405,54 @@ export function LectureWorkspace({
   }, [activeTab, detail.audioUrl]);
 
   useEffect(() => {
-    if (
-      !shouldPollLecture(detail.lecture.status) &&
-      !shouldPollAsset(detail.studyAsset?.status) &&
-      !shouldPollAsset(detail.quizAsset?.status)
-    ) {
+    if (!shouldPollCurrentDetail) {
       return;
     }
 
-    const interval = window.setInterval(async () => {
+    let cancelled = false;
+
+    const refresh = async () => {
       const response = await fetch(`/api/lectures/${detail.lecture.id}`);
-      if (!response.ok) {
+      if (!response.ok || cancelled) {
         return;
       }
 
       const nextDetail = (await response.json()) as LectureDetail;
-      setDetail(nextDetail);
-    }, POLL_INTERVAL_MS);
+      if (!cancelled) {
+        setDetail(nextDetail);
+      }
+    };
 
-    return () => window.clearInterval(interval);
-  }, [detail.lecture.id, detail.lecture.status, detail.quizAsset?.status, detail.studyAsset?.status]);
+    const interval = window.setInterval(refresh, POLL_INTERVAL_MS);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+
+    const handleFocus = () => {
+      void refresh();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [
+    detail.flashcards.length,
+    detail.lecture.id,
+    detail.lecture.status,
+    detail.quizAsset?.status,
+    detail.quizQuestions.length,
+    detail.studyAsset?.status,
+    shouldPollCurrentDetail,
+  ]);
 
   useEffect(() => {
     setIsFlashcardFlipped(false);
