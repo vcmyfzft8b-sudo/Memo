@@ -3092,6 +3092,15 @@ select:disabled {
   position: relative;
 }
 
+.lecture-flashcard-placeholder {
+  width: 100%;
+  min-height: 22rem;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--separator) 55%, transparent);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-soft);
+}
+
 .lecture-flashcard {
   position: relative;
   display: block;
@@ -5328,6 +5337,11 @@ select:disabled {
   .lecture-flashcard-face {
     min-height: 16rem;
     padding: 1.1rem;
+    border-radius: 20px;
+  }
+
+  .lecture-flashcard-placeholder {
+    min-height: 16rem;
     border-radius: 20px;
   }
 
