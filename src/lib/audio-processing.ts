@@ -18,14 +18,12 @@ function isRecord(value: unknown): value is Record<string, Json | undefined> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function shouldUseClientAudioChunking(params: {
+export function shouldUseClientAudioChunking(_params: {
   sizeBytes: number;
   durationSeconds: number;
 }) {
-  return (
-    params.sizeBytes >= CLIENT_AUDIO_CHUNK_THRESHOLD_BYTES ||
-    params.durationSeconds >= CLIENT_AUDIO_CHUNK_THRESHOLD_SECONDS
-  );
+  void _params;
+  return false;
 }
 
 export function buildChunkWindows(durationSeconds: number) {

@@ -27,6 +27,46 @@ type LecturePipelineRow = {
   processing_metadata: unknown;
 };
 
+function parseProcessingMetadata(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {} as Record<string, unknown>;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+async function updateLectureProcessingState(params: {
+  lectureId: string;
+  processingMetadata: unknown;
+  stage: "transcribing" | "generating_notes" | "ready" | "failed";
+  errorMessage?: string | null;
+  durationSeconds?: number | null;
+  title?: string | null;
+}) {
+  const supabase = createSupabaseServiceRoleClient();
+  const metadata = parseProcessingMetadata(params.processingMetadata);
+
+  await supabase
+    .from("lectures")
+    .update(
+      {
+        status: params.stage,
+        error_message: params.errorMessage ?? null,
+        duration_seconds: params.durationSeconds,
+        title: params.title,
+        processing_metadata: {
+          ...metadata,
+          processing: {
+            stage: params.stage,
+            updatedAt: new Date().toISOString(),
+            errorMessage: params.errorMessage ?? null,
+          },
+        },
+      } as never,
+    )
+    .eq("id", params.lectureId);
+}
+
 function toErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -119,14 +159,12 @@ export async function transcribeLectureContent(params: { lectureId: string }) {
   }
 
   await supabase
-    .from("lectures")
-    .update(
-      {
-        status: "transcribing",
-        error_message: null,
-      } as never,
-    )
-    .eq("id", lecture.id);
+    .from("lectures");
+  await updateLectureProcessingState({
+    lectureId: lecture.id,
+    processingMetadata: lecture.processing_metadata,
+    stage: "transcribing",
+  });
 
   const audioChunks = parseAudioChunkManifest(
     lecture.processing_metadata && typeof lecture.processing_metadata === "object"
@@ -220,15 +258,12 @@ export async function transcribeLectureContent(params: { lectureId: string }) {
     }
   }
 
-  await supabase
-    .from("lectures")
-    .update(
-      {
-        duration_seconds: transcript.durationSeconds || lecture.duration_seconds,
-        status: "generating_notes",
-      } as never,
-    )
-    .eq("id", lecture.id);
+  await updateLectureProcessingState({
+    lectureId: lecture.id,
+    processingMetadata: lecture.processing_metadata,
+    stage: "generating_notes",
+    durationSeconds: transcript.durationSeconds || lecture.duration_seconds,
+  });
 }
 
 export async function generateLectureNotesFromStoredTranscript(params: { lectureId: string }) {
@@ -288,35 +323,33 @@ export async function generateLectureNotesFromStoredTranscript(params: { lecture
     throw artifactError;
   }
 
-  const { error: lectureUpdateError } = await supabase
-    .from("lectures")
-    .update(
-      {
-        title: notes.title,
-        status: "ready",
-        error_message: null,
-      } as never,
-    )
-    .eq("id", lecture.id);
-
-  if (lectureUpdateError) {
-    throw lectureUpdateError;
-  }
+  await updateLectureProcessingState({
+    lectureId: lecture.id,
+    processingMetadata: lecture.processing_metadata,
+    stage: "ready",
+    title: notes.title,
+    durationSeconds: lecture.duration_seconds,
+  });
 }
 
 export async function markLecturePipelineFailed(params: {
   lectureId: string;
   error: unknown;
 }) {
-  await createSupabaseServiceRoleClient()
+  const { data: lecture } = await createSupabaseServiceRoleClient()
     .from("lectures")
-    .update(
-      {
-        status: "failed",
-        error_message: toErrorMessage(params.error),
-      } as never,
-    )
-    .eq("id", params.lectureId);
+    .select("processing_metadata")
+    .eq("id", params.lectureId)
+    .maybeSingle();
+
+  const lectureMetadata = lecture as { processing_metadata?: unknown } | null;
+
+  await updateLectureProcessingState({
+    lectureId: params.lectureId,
+    processingMetadata: lectureMetadata?.processing_metadata ?? {},
+    stage: "failed",
+    errorMessage: toErrorMessage(params.error),
+  });
 }
 
 export async function runLecturePipeline(params: { lectureId: string }) {

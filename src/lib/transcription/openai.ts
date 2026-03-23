@@ -39,6 +39,8 @@ const DIARIZATION_MODEL = "gpt-4o-transcribe-diarize";
 const PRIMARY_FALLBACK_MODEL = "gpt-4o-transcribe";
 const SECONDARY_FALLBACK_MODEL = "gpt-4o-mini-transcribe";
 const LAST_RESORT_MODEL = "whisper-1";
+const LONG_AUDIO_FAST_MODEL_THRESHOLD_SECONDS = 10 * 60;
+const OPENAI_TRANSCRIPTION_TIMEOUT_MS = 240_000;
 
 function resolveTranscriptionModel(configuredModel: string) {
   const normalized = configuredModel.trim();
@@ -50,7 +52,10 @@ type TranscriptionAttempt = {
   responseFormat: AudioResponseFormat;
 };
 
-function buildAttemptList(configuredModel: string): TranscriptionAttempt[] {
+function buildAttemptList(params: {
+  configuredModel: string;
+  durationSeconds?: number | null;
+}): TranscriptionAttempt[] {
   const attempts: TranscriptionAttempt[] = [];
   const seen = new Set<string>();
 
@@ -71,7 +76,18 @@ function buildAttemptList(configuredModel: string): TranscriptionAttempt[] {
     attempts.push({ model: normalizedModel, responseFormat });
   }
 
-  const resolvedModel = resolveTranscriptionModel(configuredModel);
+  const resolvedModel = resolveTranscriptionModel(params.configuredModel);
+  const prefersFastLongAudioPath =
+    resolvedModel.includes("diarize") &&
+    (params.durationSeconds ?? 0) >= LONG_AUDIO_FAST_MODEL_THRESHOLD_SECONDS;
+
+  if (prefersFastLongAudioPath) {
+    addAttempt(PRIMARY_FALLBACK_MODEL, "json");
+    addAttempt(SECONDARY_FALLBACK_MODEL, "json");
+    addAttempt(resolvedModel, "diarized_json");
+    addAttempt(LAST_RESORT_MODEL, "verbose_json");
+    return attempts;
+  }
 
   if (resolvedModel.includes("diarize")) {
     addAttempt(resolvedModel, "diarized_json");
@@ -81,7 +97,10 @@ function buildAttemptList(configuredModel: string): TranscriptionAttempt[] {
     return attempts;
   }
 
-  addAttempt(configuredModel, configuredModel === LAST_RESORT_MODEL ? "verbose_json" : "json");
+  addAttempt(
+    params.configuredModel,
+    params.configuredModel === LAST_RESORT_MODEL ? "verbose_json" : "json",
+  );
   addAttempt(PRIMARY_FALLBACK_MODEL, "json");
   addAttempt(SECONDARY_FALLBACK_MODEL, "json");
   addAttempt(LAST_RESORT_MODEL, "verbose_json");
@@ -198,6 +217,8 @@ async function transcribeSingleFile(
         ...(attempt.responseFormat === "verbose_json"
           ? { timestamp_granularities: ["segment"] }
           : {}),
+      }, {
+        timeout: OPENAI_TRANSCRIPTION_TIMEOUT_MS,
       });
 
       if (attempt.responseFormat === "diarized_json") {
@@ -286,7 +307,10 @@ export class OpenAiTranscriptionProvider implements TranscriptionProvider {
   }) {
     const openai = getOpenAiClient();
     const env = getServerEnv();
-    const attempts = buildAttemptList(env.OPENAI_TRANSCRIPTION_MODEL);
+    const attempts = buildAttemptList({
+      configuredModel: env.OPENAI_TRANSCRIPTION_MODEL,
+      durationSeconds: input.durationSeconds,
+    });
     const transcripts = [];
 
     for (const chunk of input.chunks) {
@@ -313,7 +337,10 @@ export class OpenAiTranscriptionProvider implements TranscriptionProvider {
   }): Promise<TranscriptResult> {
     const openai = getOpenAiClient();
     const env = getServerEnv();
-    const attempts = buildAttemptList(env.OPENAI_TRANSCRIPTION_MODEL);
+    const attempts = buildAttemptList({
+      configuredModel: env.OPENAI_TRANSCRIPTION_MODEL,
+      durationSeconds: input.durationSeconds,
+    });
     const shouldUseChunking =
       shouldChunkAudio(input.file, input.durationSeconds) && (await hasFfmpegBinary());
 
