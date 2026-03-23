@@ -12,6 +12,7 @@ import {
   isPlainTextDocument,
   isRtfDocument,
 } from "@/lib/document-files";
+import { enqueueLectureProcessingStage } from "@/lib/jobs";
 import { generateNotesFromTranscript } from "@/lib/note-generation";
 import { getAiProvider, getServerEnv } from "@/lib/server-env";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -577,6 +578,14 @@ export async function createLectureFromTextSource(params: {
             language_hint: params.languageHint ?? "sl",
             duration_seconds: durationSeconds,
             error_message: null,
+            title: params.titleHint ?? null,
+            processing_metadata: {
+              manualImport: {
+                sourceType: params.sourceType,
+                titleHint: params.titleHint ?? null,
+                modelMetadata: params.modelMetadata ?? {},
+              },
+            },
           } as never,
         )
         .eq("id", lectureId)
@@ -595,6 +604,14 @@ export async function createLectureFromTextSource(params: {
             status: "generating_notes",
             language_hint: params.languageHint ?? "sl",
             duration_seconds: durationSeconds,
+            title: params.titleHint ?? null,
+            processing_metadata: {
+              manualImport: {
+                sourceType: params.sourceType,
+                titleHint: params.titleHint ?? null,
+                modelMetadata: params.modelMetadata ?? {},
+              },
+            },
           } as never,
         )
         .select("id")
@@ -610,6 +627,8 @@ export async function createLectureFromTextSource(params: {
     const embeddings = await createEmbeddings(transcript.map((segment) => segment.text));
 
     await requireActiveLecture(lectureId);
+
+    await supabase.from("transcript_segments").delete().eq("lecture_id", lectureId);
 
     const transcriptRows = transcript.map((segment, index) => ({
       lecture_id: lectureId,
@@ -627,6 +646,15 @@ export async function createLectureFromTextSource(params: {
 
     if (transcriptError) {
       throw new Error(transcriptError.message);
+    }
+
+    if (
+      await enqueueLectureProcessingStage({
+        lectureId,
+        stage: "generate_notes",
+      })
+    ) {
+      return lectureId;
     }
 
     const notes = await generateNotesFromTranscript(transcript, {

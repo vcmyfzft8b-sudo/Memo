@@ -23,6 +23,8 @@ type LecturePipelineRow = {
   storage_path: string | null;
   language_hint: string | null;
   duration_seconds: number | null;
+  source_type: string | null;
+  title: string | null;
   processing_metadata: unknown;
 };
 
@@ -286,11 +288,45 @@ export async function generateLectureNotesFromStoredTranscript(params: { lecture
     throw new Error("Transcript is empty.");
   }
 
+  const manualImportMetadata =
+    lecture.processing_metadata &&
+    typeof lecture.processing_metadata === "object" &&
+    !Array.isArray(lecture.processing_metadata) &&
+    "manualImport" in lecture.processing_metadata
+      ? (lecture.processing_metadata as Record<string, unknown>).manualImport
+      : null;
+
+  const manualImportRecord =
+    manualImportMetadata && typeof manualImportMetadata === "object" && !Array.isArray(manualImportMetadata)
+      ? (manualImportMetadata as Record<string, unknown>)
+      : null;
+
+  const sourceLabel =
+    lecture.source_type === "audio"
+      ? "lecture transcripts"
+      : "uploaded documents and text sources";
+  const pipelineName =
+    lecture.source_type === "audio" ? "map-reduce-notes-v2" : "document-to-notes-v2";
+  const sourceTitleHint =
+    typeof lecture.title === "string" && lecture.title.trim().length > 0
+      ? lecture.title
+      : typeof manualImportRecord?.titleHint === "string"
+        ? manualImportRecord.titleHint
+        : undefined;
+
   const notes = await generateNotesFromTranscript(segments, {
-    sourceLabel: "lecture transcripts",
-    pipelineName: "map-reduce-notes-v2",
+    sourceLabel,
+    pipelineName,
     outputLanguage: lecture.language_hint,
+    sourceTitleHint,
   });
+
+  const manualModelMetadata =
+    manualImportRecord?.modelMetadata &&
+    typeof manualImportRecord.modelMetadata === "object" &&
+    !Array.isArray(manualImportRecord.modelMetadata)
+      ? (manualImportRecord.modelMetadata as Record<string, unknown>)
+      : {};
 
   const { error: artifactError } = await supabase
     .from("lecture_artifacts")
@@ -300,7 +336,10 @@ export async function generateLectureNotesFromStoredTranscript(params: { lecture
         summary: notes.summary,
         key_topics: notes.keyTopics,
         structured_notes_md: notes.structuredNotesMd,
-        model_metadata: notes.modelMetadata,
+        model_metadata: {
+          ...notes.modelMetadata,
+          ...manualModelMetadata,
+        },
       } as never,
       {
         onConflict: "lecture_id",

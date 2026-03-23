@@ -5,18 +5,24 @@ import { z } from "zod";
 import { citationSchema } from "@/lib/ai/schemas";
 import { generateStructuredObject } from "@/lib/ai/json";
 import { buildGeneratedContentLanguageInstruction } from "@/lib/languages";
-import type { CoverageCardDraft, CoverageConcept, CoverageUnitPlan, SourceUnit } from "@/lib/study-models";
+import type {
+  CoverageCardDraft,
+  CoverageCardKind,
+  CoverageConcept,
+  CoverageUnitPlan,
+  SourceUnit,
+} from "@/lib/study-models";
 
-const CARD_CONCURRENCY = 2;
+const CARD_CONCURRENCY = 4;
 
 const generatedCardSchema = z.object({
   front: z.string().min(6).max(140),
-  back: z.string().min(12).max(260),
+  back: z.string().min(12).max(420),
   hint: z.string().min(4).max(180).nullable(),
   difficulty: z.enum(["easy", "medium", "hard"]),
   citations: z.array(citationSchema).min(1).max(2),
   conceptKey: z.string().min(3).max(80),
-  cardKind: z.enum(["recall", "explain", "compare", "apply", "sequence"]),
+  cardKind: z.string().min(3).max(40),
   coverageRank: z.number().int().min(0).max(10),
 });
 
@@ -59,9 +65,59 @@ function normalizeCard(card: CoverageCardDraft): CoverageCardDraft {
   return {
     ...card,
     front: normalizeCardText(card.front),
-    back: normalizeCardText(card.back),
+    back: normalizeCardText(card.back).slice(0, 260).trim(),
     hint: card.hint ? normalizeCardText(card.hint) : null,
   };
+}
+
+function normalizeCardKind(value: string, fallback: CoverageCardKind): CoverageCardKind {
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "recall" ||
+    normalized === "explain" ||
+    normalized === "compare" ||
+    normalized === "apply" ||
+    normalized === "sequence"
+  ) {
+    return normalized;
+  }
+
+  if (normalized === "definition" || normalized === "term" || normalized === "formula") {
+    return "recall";
+  }
+
+  if (
+    normalized === "process" ||
+    normalized === "steps" ||
+    normalized === "ordered" ||
+    normalized === "order"
+  ) {
+    return "sequence";
+  }
+
+  if (normalized === "comparison" || normalized === "contrast") {
+    return "compare";
+  }
+
+  if (
+    normalized === "example" ||
+    normalized === "application" ||
+    normalized === "practice"
+  ) {
+    return "apply";
+  }
+
+  if (
+    normalized === "why" ||
+    normalized === "how" ||
+    normalized === "cause_effect" ||
+    normalized === "cause-effect"
+  ) {
+    return "explain";
+  }
+
+  return fallback;
 }
 
 function dedupeCards(cards: CoverageCardDraft[]) {
@@ -130,6 +186,9 @@ async function generateCardsForUnit(params: {
     0,
   );
   const languageInstruction = buildGeneratedContentLanguageInstruction(params.outputLanguage);
+  const conceptFallbackCardKind = new Map(
+    params.concepts.map((concept) => [concept.conceptKey, concept.preferredCardStyle]),
+  );
 
   const batch = await generateStructuredObject({
     schema: generatedCardBatchSchema,
@@ -193,7 +252,10 @@ Keep fronts concise and backs concise enough to review quickly.`,
         difficulty: card.difficulty,
         citations: card.citations,
         conceptKey: card.conceptKey,
-        cardKind: card.cardKind,
+        cardKind: normalizeCardKind(
+          card.cardKind,
+          conceptFallbackCardKind.get(card.conceptKey) ?? "recall",
+        ),
         sourceUnitIdx: params.unit.unitIndex,
         sourceType: params.unit.sourceType,
         sourceLocator: params.unit.locatorLabel,

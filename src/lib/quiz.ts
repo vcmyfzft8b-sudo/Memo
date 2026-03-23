@@ -16,7 +16,7 @@ import { createCoveragePlan } from "@/lib/study-coverage";
 import type { CoverageConcept, CoverageUnitPlan, SourceUnit } from "@/lib/study-models";
 import { buildSourceUnits } from "@/lib/study-source-units";
 
-const QUIZ_CONCURRENCY = 2;
+const QUIZ_CONCURRENCY = 4;
 
 type PostgrestLikeError = {
   code?: string;
@@ -43,10 +43,10 @@ type QuizQuestionDraft = {
 };
 
 const quizQuestionSchema = z.object({
-  prompt: z.string().min(12).max(220),
-  options: z.array(z.string().min(2).max(180)).length(4),
+  prompt: z.string().min(12).max(260),
+  options: z.array(z.string().min(2).max(220)).length(4),
   correctOptionIndex: z.number().int().min(0).max(3),
-  explanation: z.string().min(20).max(260),
+  explanation: z.string().min(20).max(520),
   difficulty: z.enum(["easy", "medium", "hard"]),
   conceptKey: z.string().min(3).max(80),
 });
@@ -272,6 +272,27 @@ function dedupeQuizQuestions(questions: QuizQuestionDraft[]) {
   return output;
 }
 
+function normalizeQuizText(value: string, maxLength: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  const sliced = normalized.slice(0, maxLength);
+  const sentenceBoundary = Math.max(
+    sliced.lastIndexOf(". "),
+    sliced.lastIndexOf("; "),
+    sliced.lastIndexOf(", "),
+  );
+
+  if (sentenceBoundary >= Math.floor(maxLength * 0.6)) {
+    return sliced.slice(0, sentenceBoundary + 1).trim();
+  }
+
+  return sliced.trim();
+}
+
 async function mapWithConcurrency<TInput, TOutput>(
   values: TInput[],
   concurrency: number,
@@ -352,10 +373,10 @@ Do not invent facts, terms, or examples that are not supported by the source.`,
 
   return dedupeQuizQuestions(
     batch.questions.map((question) => ({
-      prompt: question.prompt.trim(),
-      options: question.options.map((option) => option.trim()),
+      prompt: normalizeQuizText(question.prompt, 220),
+      options: question.options.map((option) => normalizeQuizText(option, 180)),
       correctOptionIndex: question.correctOptionIndex,
-      explanation: question.explanation.trim(),
+      explanation: normalizeQuizText(question.explanation, 260),
       difficulty: question.difficulty,
       conceptKey: question.conceptKey,
       sourceUnitIdx: params.unit.unitIndex,
