@@ -45,8 +45,10 @@ type FlashcardRoundSummary = {
   missed: number;
 };
 
-type FlashcardFeedback = {
+type FlashcardExitAnimation = {
+  flashcard: LectureDetail["flashcards"][number];
   bucket: FlashcardConfidenceBucket;
+  flipped: boolean;
   token: number;
 };
 
@@ -333,7 +335,9 @@ export function LectureWorkspace({
   const [cycleCardCount, setCycleCardCount] = useState(0);
   const [activeProgressFlashcardId, setActiveProgressFlashcardId] = useState<string | null>(null);
   const [flashcardRoundSummary, setFlashcardRoundSummary] = useState<FlashcardRoundSummary | null>(null);
-  const [flashcardFeedback, setFlashcardFeedback] = useState<FlashcardFeedback | null>(null);
+  const [flashcardExitAnimation, setFlashcardExitAnimation] = useState<FlashcardExitAnimation | null>(
+    null,
+  );
   const [flashcardSessionResults, setFlashcardSessionResults] = useState<
     Record<string, FlashcardSessionResult>
   >({});
@@ -408,6 +412,7 @@ export function LectureWorkspace({
     setIsFlashcardFlipped(false);
     setFlashcardRoundSummary(null);
     setFlashcardSessionResults({});
+    setFlashcardExitAnimation(null);
     setStudyError(null);
   }, [flashcardDeckKey]);
 
@@ -601,14 +606,18 @@ export function LectureWorkspace({
       window.clearTimeout(flashcardFeedbackTimerRef.current);
     }
 
-    setFlashcardFeedback({
+    setFlashcardExitAnimation({
+      flashcard,
       bucket: confidenceBucket,
+      flipped: isFlashcardFlipped,
       token: feedbackToken,
     });
     flashcardFeedbackTimerRef.current = window.setTimeout(() => {
-      setFlashcardFeedback((current) => (current?.token === feedbackToken ? null : current));
+      setFlashcardExitAnimation((current) =>
+        current?.token === feedbackToken ? null : current,
+      );
       flashcardFeedbackTimerRef.current = null;
-    }, 420);
+    }, 520);
 
     setDetail((current) => ({
       ...current,
@@ -1037,62 +1046,111 @@ export function LectureWorkspace({
                       {reviewCycle > 1 ? <span>Cycle {reviewCycle}</span> : null}
                     </div>
 
-                    <button
-                      type="button"
-                      className={`lecture-flashcard ${isFlashcardFlipped ? "flipped" : ""}`}
-                      onClick={() => setIsFlashcardFlipped((current) => !current)}
-                    >
-                      <div className="lecture-flashcard-rotator">
-                        <div className="lecture-flashcard-face lecture-flashcard-face-front">
-                          <div className="lecture-flashcard-face-meta">
-                            <span>Flashcard</span>
-                          </div>
-                          <p className="lecture-flashcard-content">{currentFlashcard.front}</p>
-                          <p className="lecture-flashcard-hintline">
-                            Click anywhere on the card to reveal the answer.
-                          </p>
-                        </div>
-                        <div className="lecture-flashcard-face lecture-flashcard-face-answer">
-                          <div className="lecture-flashcard-face-meta">
-                            <span>Answer</span>
-                          </div>
-                          <p className="lecture-flashcard-content">{currentFlashcard.back}</p>
-                          <div className="lecture-flashcard-citations">
-                            {currentFlashcard.source_locator ? (
-                              <span className="lecture-flashcard-citation lecture-flashcard-citation-primary">
-                                {currentFlashcard.source_locator}
-                              </span>
-                            ) : null}
-                            {currentFlashcard.source_type === "audio"
-                              ? currentFlashcard.citations.map((citation) => (
-                                  <span
-                                    key={`${currentFlashcard.id}-${citation.idx}-${citation.startMs}`}
-                                    className="lecture-flashcard-citation"
-                                  >
-                                    {formatTimestamp(citation.startMs)}
-                                  </span>
-                                ))
-                              : null}
-                          </div>
-                          <p className="lecture-flashcard-hintline">
-                            {currentFlashcard.hint ?? "Choose whether you knew it before moving on."}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                    {flashcardFeedback ? (
-                      <div
-                        key={flashcardFeedback.token}
-                        className={`lecture-flashcard-feedback ${flashcardFeedback.bucket}`}
-                        aria-hidden="true"
+                    <div className="lecture-flashcard-stage-card">
+                      <button
+                        type="button"
+                        className={`lecture-flashcard ${isFlashcardFlipped ? "flipped" : ""}`}
+                        onClick={() => setIsFlashcardFlipped((current) => !current)}
                       >
-                        {flashcardFeedback.bucket === "again" ? (
-                          <X className="h-5 w-5" />
-                        ) : (
-                          <Check className="h-5 w-5" />
-                        )}
-                      </div>
-                    ) : null}
+                        <div className="lecture-flashcard-rotator">
+                          <div className="lecture-flashcard-face lecture-flashcard-face-front">
+                            <div className="lecture-flashcard-face-meta">
+                              <span>Flashcard</span>
+                            </div>
+                            <p className="lecture-flashcard-content">{currentFlashcard.front}</p>
+                            <p className="lecture-flashcard-hintline">
+                              Click anywhere on the card to reveal the answer.
+                            </p>
+                          </div>
+                          <div className="lecture-flashcard-face lecture-flashcard-face-answer">
+                            <div className="lecture-flashcard-face-meta">
+                              <span>Answer</span>
+                            </div>
+                            <p className="lecture-flashcard-content">{currentFlashcard.back}</p>
+                            <div className="lecture-flashcard-citations">
+                              {currentFlashcard.source_locator ? (
+                                <span className="lecture-flashcard-citation lecture-flashcard-citation-primary">
+                                  {currentFlashcard.source_locator}
+                                </span>
+                              ) : null}
+                              {currentFlashcard.source_type === "audio"
+                                ? currentFlashcard.citations.map((citation) => (
+                                    <span
+                                      key={`${currentFlashcard.id}-${citation.idx}-${citation.startMs}`}
+                                      className="lecture-flashcard-citation"
+                                    >
+                                      {formatTimestamp(citation.startMs)}
+                                    </span>
+                                  ))
+                                : null}
+                            </div>
+                            <p className="lecture-flashcard-hintline">
+                              {currentFlashcard.hint ??
+                                "Choose whether you knew it before moving on."}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                      {flashcardExitAnimation ? (
+                        <div
+                          key={flashcardExitAnimation.token}
+                          className={`lecture-flashcard-exit-card ${flashcardExitAnimation.bucket} ${
+                            flashcardExitAnimation.flipped ? "flipped" : ""
+                          }`}
+                          aria-hidden="true"
+                        >
+                          <div className="lecture-flashcard-rotator">
+                            <div className="lecture-flashcard-face lecture-flashcard-face-front">
+                              <div className="lecture-flashcard-face-meta">
+                                <span>Flashcard</span>
+                              </div>
+                              <p className="lecture-flashcard-content">
+                                {flashcardExitAnimation.flashcard.front}
+                              </p>
+                              <p className="lecture-flashcard-hintline">
+                                Click anywhere on the card to reveal the answer.
+                              </p>
+                            </div>
+                            <div className="lecture-flashcard-face lecture-flashcard-face-answer">
+                              <div className="lecture-flashcard-face-meta">
+                                <span>Answer</span>
+                              </div>
+                              <p className="lecture-flashcard-content">
+                                {flashcardExitAnimation.flashcard.back}
+                              </p>
+                              <div className="lecture-flashcard-citations">
+                                {flashcardExitAnimation.flashcard.source_locator ? (
+                                  <span className="lecture-flashcard-citation lecture-flashcard-citation-primary">
+                                    {flashcardExitAnimation.flashcard.source_locator}
+                                  </span>
+                                ) : null}
+                                {flashcardExitAnimation.flashcard.source_type === "audio"
+                                  ? flashcardExitAnimation.flashcard.citations.map((citation) => (
+                                      <span
+                                        key={`${flashcardExitAnimation.flashcard.id}-${citation.idx}-${citation.startMs}`}
+                                        className="lecture-flashcard-citation"
+                                      >
+                                        {formatTimestamp(citation.startMs)}
+                                      </span>
+                                    ))
+                                  : null}
+                              </div>
+                              <p className="lecture-flashcard-hintline">
+                                {flashcardExitAnimation.flashcard.hint ??
+                                  "Choose whether you knew it before moving on."}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="lecture-flashcard-exit-overlay">
+                            {flashcardExitAnimation.bucket === "again" ? (
+                              <X className="h-9 w-9" />
+                            ) : (
+                              <Check className="h-9 w-9" />
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="lecture-flashcard-toolbar">

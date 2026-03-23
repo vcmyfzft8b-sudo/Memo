@@ -3088,6 +3088,10 @@ select:disabled {
   background: color-mix(in srgb, var(--surface-muted) 84%, transparent);
 }
 
+.lecture-flashcard-stage-card {
+  position: relative;
+}
+
 .lecture-flashcard {
   position: relative;
   display: block;
@@ -3747,53 +3751,73 @@ select:disabled {
   gap: 0.7rem;
 }
 
-@keyframes lecture-flashcard-feedback-pop {
+@keyframes lecture-flashcard-exit-swipe {
   0% {
-    opacity: 0;
-    transform: translate(-50%, 12px) scale(0.84);
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
   }
 
-  18% {
+  22% {
     opacity: 1;
-    transform: translate(-50%, 0) scale(1);
-  }
-
-  82% {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(1);
+    transform: translate3d(0, -2px, 0) rotate(-1deg) scale(1.01);
   }
 
   100% {
     opacity: 0;
-    transform: translate(-50%, -10px) scale(0.96);
+    transform: translate3d(18%, -4%, 0) rotate(6deg) scale(1.02);
   }
 }
 
-.lecture-flashcard-feedback {
+.lecture-flashcard-exit-card {
   position: absolute;
-  left: 50%;
-  bottom: 5.6rem;
+  inset: 0;
   z-index: 5;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.15rem;
-  height: 3.15rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--separator) 44%, transparent);
-  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
-  backdrop-filter: blur(14px);
   pointer-events: none;
-  animation: lecture-flashcard-feedback-pop 0.62s ease forwards;
+  animation: lecture-flashcard-exit-swipe 0.52s cubic-bezier(0.2, 0.72, 0.2, 1) forwards;
 }
 
-.lecture-flashcard-feedback.again {
-  color: var(--red);
+.lecture-flashcard-exit-card .lecture-flashcard-face {
+  box-shadow: var(--shadow-raised);
 }
 
-.lecture-flashcard-feedback.easy {
-  color: var(--green);
+.lecture-flashcard-exit-card.easy .lecture-flashcard-face {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--green-soft) 94%, var(--surface-solid)),
+      color-mix(in srgb, #dff5e5 96%, var(--surface-solid))
+    );
+  border-color: color-mix(in srgb, var(--green) 34%, transparent);
+}
+
+.lecture-flashcard-exit-card.again .lecture-flashcard-face {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--red-soft) 94%, var(--surface-solid)),
+      color-mix(in srgb, #fde5e2 96%, var(--surface-solid))
+    );
+  border-color: color-mix(in srgb, var(--red) 34%, transparent);
+}
+
+.lecture-flashcard-exit-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  color: white;
+}
+
+.lecture-flashcard-exit-card.easy .lecture-flashcard-exit-overlay {
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: color-mix(in srgb, var(--green) 96%, #15803d);
+}
+
+.lecture-flashcard-exit-card.again .lecture-flashcard-exit-overlay {
+  background: color-mix(in srgb, var(--red) 16%, transparent);
+  color: color-mix(in srgb, var(--red) 96%, #dc2626);
 }
 
 .lecture-flashcard-review-button {
