@@ -1103,44 +1103,10 @@ export function LectureWorkspace({
                         >
                           <div className="lecture-flashcard-rotator">
                             <div className="lecture-flashcard-face lecture-flashcard-face-front">
-                              <div className="lecture-flashcard-face-meta">
-                                <span>Flashcard</span>
-                              </div>
-                              <p className="lecture-flashcard-content">
-                                {flashcardExitAnimation.flashcard.front}
-                              </p>
-                              <p className="lecture-flashcard-hintline">
-                                Click anywhere on the card to reveal the answer.
-                              </p>
+                              <div className="lecture-flashcard-exit-blank" />
                             </div>
                             <div className="lecture-flashcard-face lecture-flashcard-face-answer">
-                              <div className="lecture-flashcard-face-meta">
-                                <span>Answer</span>
-                              </div>
-                              <p className="lecture-flashcard-content">
-                                {flashcardExitAnimation.flashcard.back}
-                              </p>
-                              <div className="lecture-flashcard-citations">
-                                {flashcardExitAnimation.flashcard.source_locator ? (
-                                  <span className="lecture-flashcard-citation lecture-flashcard-citation-primary">
-                                    {flashcardExitAnimation.flashcard.source_locator}
-                                  </span>
-                                ) : null}
-                                {flashcardExitAnimation.flashcard.source_type === "audio"
-                                  ? flashcardExitAnimation.flashcard.citations.map((citation) => (
-                                      <span
-                                        key={`${flashcardExitAnimation.flashcard.id}-${citation.idx}-${citation.startMs}`}
-                                        className="lecture-flashcard-citation"
-                                      >
-                                        {formatTimestamp(citation.startMs)}
-                                      </span>
-                                    ))
-                                  : null}
-                              </div>
-                              <p className="lecture-flashcard-hintline">
-                                {flashcardExitAnimation.flashcard.hint ??
-                                  "Choose whether you knew it before moving on."}
-                              </p>
+                              <div className="lecture-flashcard-exit-blank" />
                             </div>
                           </div>
                           <div className="lecture-flashcard-exit-overlay">
