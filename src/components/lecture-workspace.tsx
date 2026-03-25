@@ -1113,23 +1113,6 @@ export function LectureWorkspace({
                               <span>Answer</span>
                             </div>
                             <p className="lecture-flashcard-content">{currentFlashcard.back}</p>
-                            <div className="lecture-flashcard-citations">
-                              {currentFlashcard.source_locator ? (
-                                <span className="lecture-flashcard-citation lecture-flashcard-citation-primary">
-                                  {currentFlashcard.source_locator}
-                                </span>
-                              ) : null}
-                              {currentFlashcard.source_type === "audio"
-                                ? currentFlashcard.citations.map((citation) => (
-                                    <span
-                                      key={`${currentFlashcard.id}-${citation.idx}-${citation.startMs}`}
-                                      className="lecture-flashcard-citation"
-                                    >
-                                      {formatTimestamp(citation.startMs)}
-                                    </span>
-                                  ))
-                                : null}
-                            </div>
                             {currentFlashcard.hint ? (
                               <p className="lecture-flashcard-hintline">{currentFlashcard.hint}</p>
                             ) : null}
