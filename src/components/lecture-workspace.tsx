@@ -1013,7 +1013,6 @@ export function LectureWorkspace({
       const flashcardsCompleted = totalFlashcards > 0 && currentFlashcard === null;
       const shouldAutoSizeStudyShell =
         activeStudyView === "quiz" || (activeStudyView === "flashcards" && flashcardsCompleted);
-      const currentCyclePosition = cycleCardCount > 0 ? cycleCardCount - reviewQueue.length + 1 : 0;
       const activeMaterialError =
         activeStudyView === "flashcards"
           ? detail.studyAsset?.error_message
@@ -1096,11 +1095,6 @@ export function LectureWorkspace({
               ) : currentFlashcard ? (
                 <>
                   <div className="lecture-flashcard-stage">
-                    <div className="lecture-flashcard-stage-meta">
-                      <span>Card {currentCyclePosition} / {cycleCardCount}</span>
-                      {reviewCycle > 1 ? <span>Cycle {reviewCycle}</span> : null}
-                    </div>
-
                     <div className="lecture-flashcard-stage-card">
                       <button
                         type="button"
@@ -1113,9 +1107,6 @@ export function LectureWorkspace({
                               <span>Flashcard</span>
                             </div>
                             <p className="lecture-flashcard-content">{currentFlashcard.front}</p>
-                            <p className="lecture-flashcard-hintline">
-                              Click anywhere on the card to reveal the answer.
-                            </p>
                           </div>
                           <div className="lecture-flashcard-face lecture-flashcard-face-answer">
                             <div className="lecture-flashcard-face-meta">
@@ -1139,10 +1130,9 @@ export function LectureWorkspace({
                                   ))
                                 : null}
                             </div>
-                            <p className="lecture-flashcard-hintline">
-                              {currentFlashcard.hint ??
-                                "Choose whether you knew it before moving on."}
-                            </p>
+                            {currentFlashcard.hint ? (
+                              <p className="lecture-flashcard-hintline">{currentFlashcard.hint}</p>
+                            ) : null}
                           </div>
                         </div>
                       </button>
@@ -1402,11 +1392,7 @@ export function LectureWorkspace({
                       </p>
                       <p className="lecture-quiz-feedback-copy">{activeQuizQuestion.explanation}</p>
                     </div>
-                  ) : (
-                    <p className="lecture-flashcard-hintline">
-                      Choose one answer to reveal the explanation.
-                    </p>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="lecture-quiz-actions">
