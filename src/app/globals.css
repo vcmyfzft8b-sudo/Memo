@@ -3152,6 +3152,10 @@ select:disabled {
   grid-template-rows: auto 1fr;
 }
 
+.lecture-flashcard-face-answer {
+  grid-template-rows: auto 1fr auto;
+}
+
 .lecture-flashcard-face-meta {
   display: flex;
   flex-wrap: wrap;
@@ -3183,6 +3187,13 @@ select:disabled {
 }
 
 .lecture-flashcard-face-front .lecture-flashcard-content {
+  align-self: center;
+  justify-self: center;
+  width: min(100%, 19ch);
+  text-align: center;
+}
+
+.lecture-flashcard-face-answer .lecture-flashcard-content {
   align-self: center;
   justify-self: center;
   width: min(100%, 19ch);
