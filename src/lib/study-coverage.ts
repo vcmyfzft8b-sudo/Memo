@@ -32,6 +32,10 @@ const plannerBatchSchema = z.object({
 
 type PlannerUnitDraft = z.infer<typeof plannerUnitSchema>;
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -199,6 +203,101 @@ function normalizeUnitPlan(unit: SourceUnit, plan: PlannerUnitDraft | CoverageUn
   };
 }
 
+function conceptPriorityScore(
+  concept: CoverageConcept,
+  plan: CoverageUnitPlan,
+  unit: SourceUnit,
+) {
+  const importanceScore =
+    concept.studyValue === "high" || plan.importance === "high" || unit.importance === "high"
+      ? 3
+      : concept.studyValue === "medium" || plan.importance === "medium" || unit.importance === "medium"
+        ? 2
+        : 1;
+  const styleScore =
+    concept.preferredCardStyle === "recall" || concept.preferredCardStyle === "sequence"
+      ? 2
+      : concept.preferredCardStyle === "compare" || concept.preferredCardStyle === "explain"
+        ? 1
+        : 0;
+
+  return importanceScore * 10 + styleScore + Math.min(unit.wordCount / 200, 2);
+}
+
+function buildStudyItemTarget(units: SourceUnit[]) {
+  const sourceWordCount = units.reduce((total, unit) => total + unit.wordCount, 0);
+  const baseTarget = Math.round(sourceWordCount / 40);
+  const maxTarget =
+    sourceWordCount >= 8000 ? 120 : sourceWordCount >= 5000 ? 100 : 80;
+
+  return clamp(baseTarget, 18, maxTarget);
+}
+
+function applyStudyItemBudget(plans: CoverageUnitPlan[], units: SourceUnit[]) {
+  const unitByIndex = new Map(units.map((unit) => [unit.unitIndex, unit]));
+  const totalConceptCount = plans.reduce((total, plan) => total + plan.concepts.length, 0);
+  const targetTotal = Math.max(totalConceptCount, buildStudyItemTarget(units));
+  const normalizedPlans = plans.map((plan) => ({
+    ...plan,
+    concepts: plan.concepts.map((concept) => ({
+      ...concept,
+      recommendedCardCount: 1,
+    })),
+  }));
+  let remainingBudget = targetTotal - totalConceptCount;
+
+  if (remainingBudget <= 0) {
+    return normalizedPlans;
+  }
+
+  const rankedConcepts = normalizedPlans
+    .flatMap((plan) =>
+      plan.concepts.map((concept) => ({
+        concept,
+        plan,
+        unit: unitByIndex.get(plan.unitIndex),
+      })),
+    )
+    .filter(
+      (entry): entry is {
+        concept: CoverageConcept;
+        plan: CoverageUnitPlan;
+        unit: SourceUnit;
+      } => Boolean(entry.unit),
+    )
+    .sort(
+      (left, right) =>
+        conceptPriorityScore(right.concept, right.plan, right.unit) -
+        conceptPriorityScore(left.concept, left.plan, left.unit),
+    );
+
+  for (let pass = 2; pass <= 3 && remainingBudget > 0; pass += 1) {
+    for (const entry of rankedConcepts) {
+      if (remainingBudget <= 0) {
+        break;
+      }
+
+      const originalPlan = plans.find((plan) => plan.unitIndex === entry.plan.unitIndex);
+      const originalConcept = originalPlan?.concepts.find(
+        (concept) => concept.conceptKey === entry.concept.conceptKey,
+      );
+
+      if (!originalConcept || originalConcept.recommendedCardCount < pass) {
+        continue;
+      }
+
+      if (entry.concept.recommendedCardCount >= pass) {
+        continue;
+      }
+
+      entry.concept.recommendedCardCount = pass;
+      remainingBudget -= 1;
+    }
+  }
+
+  return normalizedPlans;
+}
+
 async function mapWithConcurrency<TInput, TOutput>(
   values: TInput[],
   concurrency: number,
@@ -292,5 +391,8 @@ export async function createCoveragePlan(params: {
     planByUnit.set(unitIndex, plan);
   }
 
-  return params.units.map((unit) => normalizeUnitPlan(unit, planByUnit.get(unit.unitIndex)));
+  return applyStudyItemBudget(
+    params.units.map((unit) => normalizeUnitPlan(unit, planByUnit.get(unit.unitIndex))),
+    params.units,
+  );
 }

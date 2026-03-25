@@ -19,7 +19,7 @@ const generatedCitationSchema = z.object({
   idx: z.number().int().nonnegative(),
   startMs: z.number().int().nonnegative(),
   endMs: z.number().int().nonnegative(),
-  quote: z.string().min(1).max(400),
+  quote: z.string().min(1).max(1600),
 });
 
 const generatedCardSchema = z.object({
