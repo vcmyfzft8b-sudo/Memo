@@ -464,6 +464,7 @@ export async function createLectureFromTextSource(params: {
     const notes = await generateNotesFromTranscript(transcript, {
       sourceLabel: "uploaded documents and text sources",
       pipelineName: "document-to-notes-v2",
+      sourceType: "document",
       outputLanguage: params.languageHint,
       sourceTitleHint: params.titleHint,
     });

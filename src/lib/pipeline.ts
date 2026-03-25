@@ -389,6 +389,7 @@ export async function generateLectureNotesFromStoredTranscript(params: { lecture
   const notes = await generateNotesFromTranscript(segments, {
     sourceLabel,
     pipelineName,
+    sourceType: lecture.source_type === "audio" ? "audio" : "document",
     outputLanguage: lecture.language_hint,
     sourceTitleHint,
   });

@@ -18,28 +18,49 @@ function buildNoteTargets(sourceWordCount: number, chunkCount: number) {
   };
 }
 
+function buildAudioNoteTargets(sourceWordCount: number, chunkCount: number) {
+  return {
+    targetNoteWordCount: Math.max(1200, Math.min(5200, Math.round(sourceWordCount * 0.58))),
+    minSectionCount: Math.max(6, Math.min(18, Math.ceil(chunkCount * 1.15))),
+    recommendedTopicCount: Math.max(8, Math.min(20, Math.ceil(chunkCount / 1.2))),
+  };
+}
+
 export async function generateNotesFromTranscript(
   segments: TranscriptSegmentInput[],
   params: {
     sourceLabel: string;
     pipelineName: string;
+    sourceType?: "audio" | "document";
     outputLanguage?: string | null;
     sourceTitleHint?: string | null;
   },
 ): Promise<NoteGenerationResult> {
-  const windows = buildTranscriptWindows(segments, 3200);
+  const sourceType = params.sourceType ?? "audio";
+  const windows = buildTranscriptWindows(segments, sourceType === "audio" ? 2200 : 3200);
   const sourceWordCount = segments.reduce((total, segment) => total + countWords(segment.text), 0);
-  const targets = buildNoteTargets(sourceWordCount, windows.length);
+  const targets =
+    sourceType === "audio"
+      ? buildAudioNoteTargets(sourceWordCount, windows.length)
+      : buildNoteTargets(sourceWordCount, windows.length);
   const languageInstruction = buildGeneratedContentLanguageInstruction(params.outputLanguage);
   const languageLabel = resolveNoteLanguageLabel(params.outputLanguage);
+  const chunkInstructions =
+    sourceType === "audio"
+      ? `${languageInstruction} You create detailed study notes from spoken lecture transcripts. Capture all substantive material from the chunk, including definitions, mechanisms, sequences, comparisons, examples, clarifications, caveats, and exam-relevant details. Preserve technical terms and explain abbreviated or implied ideas when the transcript supports them. Do not compress the lecture into a short recap. Never invent facts. Bullet points must be complete study points, not fragments.`
+      : `${languageInstruction} You create detailed study notes from lecture-style source material. Capture all substantive material from the chunk, including definitions, mechanisms, sequences, comparisons, caveats, examples already present in the source, and exam-relevant details. Never invent facts. Bullet points must be complete study points, not fragments.`;
+  const finalInstructions =
+    sourceType === "audio"
+      ? `${languageInstruction} You are preparing final study notes in ${languageLabel} from ${params.sourceLabel}. Produce a title, summary, key topics, and detailed student-ready notes that cover nearly all meaningful material in the source. This is a spoken lecture transcript, so reconstruct the material into clean, structured notes without dropping substance. Include important definitions, steps, relationships, examples, clarifications, and lecturer-added context when supported by the transcript. Do not compress the lecture into a short outline. Organize the markdown with headings, subheadings, bullet lists, and short explanatory paragraphs. Explain the logic behind processes and relationships, preserve technical terms, and include examples only when supported by the source material. Every chunk summary should contribute substantive content to the final notes. Aim for about ${targets.targetNoteWordCount} words when the source supports it. Build at least ${targets.minSectionCount} substantial sections when the material supports it.`
+      : `${languageInstruction} You are preparing final study notes in ${languageLabel} from ${params.sourceLabel}. Produce a title, summary, key topics, and detailed student-ready notes that cover nearly all meaningful material in the source. Do not compress the lecture into a short outline. Organize the markdown with headings, subheadings, bullet lists, and short explanatory paragraphs. Explain the logic behind processes and relationships, preserve technical terms, and include examples only when supported by the source material. Every chunk summary should contribute substantive content to the final notes. Aim for about ${targets.targetNoteWordCount} words when the source supports it. Build at least ${targets.minSectionCount} substantial sections when the material supports it.`;
 
   const chunkOutputs = await Promise.all(
     windows.map((window, index) =>
       generateStructuredObject({
         schema: chunkSummarySchema,
         schemaName: "chunk_summary",
-        maxOutputTokens: 1400,
-        instructions: `${languageInstruction} You create detailed study notes from lecture-style source material. Capture all substantive material from the chunk, including definitions, mechanisms, sequences, comparisons, caveats, examples already present in the source, and exam-relevant details. Never invent facts. Bullet points must be complete study points, not fragments.`,
+        maxOutputTokens: sourceType === "audio" ? 1900 : 1400,
+        instructions: chunkInstructions,
         input: `Source chunk ${index + 1} of ${windows.length}.\nTime range: ${window.startMs}-${window.endMs} ms.\nText:\n${window.text}`,
       }),
     ),
@@ -48,10 +69,11 @@ export async function generateNotesFromTranscript(
   const result = await generateStructuredObject({
     schema: noteArtifactSchema,
     schemaName: "note_artifact",
-    maxOutputTokens: 9000,
-    instructions: `${languageInstruction} You are preparing final study notes in ${languageLabel} from ${params.sourceLabel}. Produce a title, summary, key topics, and detailed student-ready notes that cover nearly all meaningful material in the source. Do not compress the lecture into a short outline. Organize the markdown with headings, subheadings, bullet lists, and short explanatory paragraphs. Explain the logic behind processes and relationships, preserve technical terms, and include examples only when supported by the source material. Every chunk summary should contribute substantive content to the final notes. Aim for about ${targets.targetNoteWordCount} words when the source supports it. Build at least ${targets.minSectionCount} substantial sections when the material supports it.`,
+    maxOutputTokens: sourceType === "audio" ? 12000 : 9000,
+    instructions: finalInstructions,
     input: JSON.stringify(
       {
+        sourceType,
         sourceWordCount,
         chunkCount: chunkOutputs.length,
         targets,
@@ -75,6 +97,7 @@ export async function generateNotesFromTranscript(
         sourceWordCount > 0 ? Number((noteWordCount / sourceWordCount).toFixed(3)) : null,
       targetNoteWordCount: targets.targetNoteWordCount,
       recommendedTopicCount: targets.recommendedTopicCount,
+      sourceType,
       pipeline: params.pipelineName,
     },
   };

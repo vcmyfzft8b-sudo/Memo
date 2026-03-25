@@ -7,6 +7,16 @@ interface TranscriptWindow {
   segmentIndexes: number[];
 }
 
+function formatSegmentText(segment: TranscriptSegmentInput) {
+  const label = segment.speakerLabel?.trim();
+
+  if (!label) {
+    return segment.text;
+  }
+
+  return `[${label}] ${segment.text}`;
+}
+
 export function buildTranscriptWindows(
   segments: TranscriptSegmentInput[],
   maxChars = 5000,
@@ -20,21 +30,21 @@ export function buildTranscriptWindows(
       current = {
         startMs: segment.startMs,
         endMs: segment.endMs,
-        text: segment.text,
+        text: formatSegmentText(segment),
         segmentIndexes: [segment.idx],
       };
       continue;
     }
 
     const activeWindow: TranscriptWindow = current;
-    const nextText = `${activeWindow.text}\n${segment.text}`;
+    const nextText = `${activeWindow.text}\n${formatSegmentText(segment)}`;
 
     if (nextText.length > maxChars) {
       windows.push(activeWindow);
       current = {
         startMs: segment.startMs,
         endMs: segment.endMs,
-        text: segment.text,
+        text: formatSegmentText(segment),
         segmentIndexes: [segment.idx],
       };
       continue;
