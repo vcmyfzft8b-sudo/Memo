@@ -359,6 +359,16 @@ When a concept requests multiple questions, make them materially different and t
 Every question must have exactly 4 answer options and exactly 1 correct answer.
 Avoid "all of the above", "none of the above", trick phrasing, and ambiguous distractors.
 Keep questions concise, testable, and grounded in the source.
+Make the quiz feel parallel to a strong flashcard deck: short, specific, important, and easy to review at scale.
+Prefer stems in patterns like:
+- "Kaj je ...?"
+- "Kaj pomeni ...?"
+- "Kateri/Katera/Katero ...?"
+- "Navedite/Naštejte ..." when converted into multiple-choice form
+- "Dopolnite ..." when the source contains an equation, phrase, or canonical relationship
+Prioritize terminology, direct definitions, acronym meanings, equations, exact lists, named models, categories, classifications, step sequences, and concrete facts before broad interpretation questions.
+Use "zakaj" or "kako" style questions only when the mechanism itself is central and clearly supported by the source.
+Distractors should be plausible alternatives from the same topic area, not random nonsense.
 Use the provided conceptKey exactly.
 Do not invent facts, terms, or examples that are not supported by the source.`,
     input: JSON.stringify(

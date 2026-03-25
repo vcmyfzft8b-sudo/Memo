@@ -265,9 +265,19 @@ async function generateCardsForUnit(params: {
 ${params.repairOnly ? "Repair missing concept coverage." : "Generate source-grounded study flashcards."}
 Use only the supplied source units.
 Cover every requested concept explicitly.
+Make the deck feel like a high-quality study deck built for full-course review.
+Prefer short, atomic cards over broad paraphrases.
+Prioritize card fronts in patterns like:
+- "Kaj je X?"
+- "Kaj pomeni X?"
+- "Kateri/Katera/Katero ...?"
+- "Navedite/Naštejte ..."
+- "Dopolnite: ..."
+- "Termin: X"
+- "Definicija: X"
 Produce mixed study cards:
-- recall cards for essential terms, definitions, names, dates, and formulas
-- explain cards for how and why
+- recall cards for essential terms, definitions, names, dates, formulas, models, categories, and exact facts
+- explain cards for how and why, but only when the mechanism itself is important
 - compare cards for contrasts
 - sequence cards for steps and ordered processes
 - apply cards only when the source includes an example or practical case
@@ -277,12 +287,17 @@ Do not invent facts or examples.
 Every card must cite 1 or 2 source units and the answer must be fully supported by those citations.
 Use the provided conceptKey exactly.
 Prefer concise, exam-style cards over broad explanatory paraphrases.
-Prefer direct definition, acronym, device-role, protocol-purpose, and exact-list cards.
+Prefer direct definition, acronym, device-role, protocol-purpose, equation-completion, classification, and exact-list cards.
+Use fill-in-the-blank cards when the source contains equations, named formulas, paired concepts, or canonical phrases worth memorizing.
+Use "Termin: X" fronts when the answer should be a concise definition.
+Use "Definicija: ..." fronts when the student should name the term.
+Use "Navedite/Naštejte ..." when the source gives an exact set that matters.
 Only use broad "zakaj" or "kako" explanation cards when the source clearly teaches a mechanism or ordered process that matters to understand, not just to recall.
 For acronyms, named protocols, named devices, or named services, prefer direct cards such as "Kaj pomeni kratica X?" or "Kaj je vloga X?".
 For list facts, ask for the complete set only when the set itself matters.
 Do not create cards about generic chapter goals, obvious figure captions, or "what does the picture show" unless the figure adds a distinct fact not stated elsewhere.
-Backs should usually be one short sentence or one short list item unless a full sequence is required.
+Backs should usually be very short: one phrase, one sentence, one exact value, or one short list item unless a full sequence is required.
+Keep answers close to memorization form rather than long explanations.
 Keep fronts concise and backs concise enough to review quickly.`,
     input: JSON.stringify(
       {
