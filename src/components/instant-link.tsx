@@ -19,10 +19,15 @@ export const InstantLink = forwardRef<HTMLAnchorElement, InstantLinkProps>(funct
   ref,
 ) {
   const router = useRouter();
+  const shouldPrefetch = prefetch ?? true;
 
   const prefetchHref = useCallback(() => {
+    if (!shouldPrefetch) {
+      return;
+    }
+
     router.prefetch(href);
-  }, [href, router]);
+  }, [href, router, shouldPrefetch]);
 
   useEffect(() => {
     prefetchHref();
@@ -35,7 +40,7 @@ export const InstantLink = forwardRef<HTMLAnchorElement, InstantLinkProps>(funct
       href={href}
       replace={replace}
       scroll={scroll}
-      prefetch={prefetch ?? true}
+      prefetch={shouldPrefetch}
       onPointerDown={(event) => {
         prefetchHref();
         onPointerDown?.(event);
