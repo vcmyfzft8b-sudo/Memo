@@ -2401,11 +2401,6 @@ select:disabled {
   backface-visibility: hidden;
   contain: paint;
   will-change: transform, opacity;
-  transition:
-    opacity var(--motion-duration-fast) linear,
-    background-color var(--motion-duration-fast) var(--motion-curve-standard),
-    transform var(--motion-duration-fast) var(--motion-curve-standard),
-    box-shadow var(--motion-duration-fast) var(--motion-curve-standard);
 }
 
 .ios-row-note-card.menu-open {
@@ -2414,12 +2409,12 @@ select:disabled {
 }
 
 .ios-row-note-card:hover {
-  transform: translate3d(0, -0.75px, 0);
+  transform: translate3d(0, -1px, 0);
   box-shadow: var(--shadow-raised);
 }
 
 .ios-row-note-card:active {
-  opacity: 0.985;
+  opacity: 0.96;
   transform: translate3d(0, 0, 0);
   box-shadow: var(--shadow-soft);
 }
@@ -2474,20 +2469,15 @@ select:disabled {
   border: 1px solid color-mix(in srgb, var(--separator) 70%, transparent);
   background: color-mix(in srgb, var(--surface-muted) 88%, transparent);
   color: var(--secondary-label);
-  transition:
-    opacity var(--motion-duration-fast) linear,
-    background-color var(--motion-duration-fast) var(--motion-curve-standard),
-    transform var(--motion-duration-fast) var(--motion-curve-standard),
-    box-shadow var(--motion-duration-fast) var(--motion-curve-standard);
 }
 
 .dashboard-note-menu-button:hover {
-  transform: translate3d(0, -0.75px, 0);
-  box-shadow: var(--shadow-soft);
+  transform: translate3d(0, -1px, 0);
+  box-shadow: var(--shadow-raised);
 }
 
 .dashboard-note-menu-button:active {
-  opacity: 0.985;
+  opacity: 0.96;
   transform: translate3d(0, 0, 0);
   box-shadow: var(--shadow-soft);
 }
@@ -2545,23 +2535,18 @@ select:disabled {
   font-size: 0.9rem;
   font-weight: 500;
   text-align: left;
-  transition:
-    opacity var(--motion-duration-fast) linear,
-    background-color var(--motion-duration-fast) var(--motion-curve-standard),
-    transform var(--motion-duration-fast) var(--motion-curve-standard),
-    box-shadow var(--motion-duration-fast) var(--motion-curve-standard);
 }
 
 .dashboard-note-menu-item:hover {
   background: color-mix(in srgb, var(--surface-muted) 88%, transparent);
-  transform: translate3d(0, -0.75px, 0);
-  box-shadow: var(--shadow-soft);
+  transform: translate3d(0, -1px, 0);
+  box-shadow: var(--shadow-raised);
 }
 
 .dashboard-note-menu-item:active {
-  opacity: 0.985;
+  opacity: 0.96;
   transform: translate3d(0, 0, 0);
-  box-shadow: none;
+  box-shadow: var(--shadow-soft);
 }
 
 .dashboard-note-menu-item.danger {
