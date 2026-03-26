@@ -13,20 +13,24 @@ type LibraryFolder = {
   lectureIds: string[];
 };
 
-const STORAGE_KEY = "nota-library-folders";
+const LEGACY_FOLDERS_STORAGE_KEY = "nota-library-folders";
+const FOLDERS_STORAGE_KEY_PREFIX = "nota-library-folders";
+const SELECTED_FOLDER_STORAGE_KEY_PREFIX = "nota-selected-library-folder";
 
-function readStoredFolders() {
-  if (typeof window === "undefined") {
+function getFoldersStorageKey(userId: string) {
+  return `${FOLDERS_STORAGE_KEY_PREFIX}:${userId}`;
+}
+
+function getSelectedFolderStorageKey(userId: string) {
+  return `${SELECTED_FOLDER_STORAGE_KEY_PREFIX}:${userId}`;
+}
+
+function parseStoredFolders(rawValue: string | null) {
+  if (!rawValue) {
     return [];
   }
 
   try {
-    const rawValue = window.localStorage.getItem(STORAGE_KEY);
-
-    if (!rawValue) {
-      return [];
-    }
-
     const parsed = JSON.parse(rawValue) as unknown;
 
     if (!Array.isArray(parsed)) {
@@ -51,12 +55,57 @@ function readStoredFolders() {
   }
 }
 
-function writeStoredFolders(nextFolders: LibraryFolder[]) {
+function readStoredFolders(userId: string) {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  const userScopedKey = getFoldersStorageKey(userId);
+  const userScopedFolders = parseStoredFolders(window.localStorage.getItem(userScopedKey));
+
+  if (userScopedFolders.length > 0) {
+    return userScopedFolders;
+  }
+
+  const legacyFolders = parseStoredFolders(window.localStorage.getItem(LEGACY_FOLDERS_STORAGE_KEY));
+
+  if (legacyFolders.length > 0) {
+    window.localStorage.setItem(userScopedKey, JSON.stringify(legacyFolders));
+  }
+
+  return legacyFolders;
+}
+
+function writeStoredFolders(userId: string, nextFolders: LibraryFolder[]) {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextFolders));
+  window.localStorage.setItem(getFoldersStorageKey(userId), JSON.stringify(nextFolders));
+}
+
+function readStoredSelectedFolderId(userId: string) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const value = window.localStorage.getItem(getSelectedFolderStorageKey(userId));
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function writeStoredSelectedFolderId(userId: string, folderId: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const storageKey = getSelectedFolderStorageKey(userId);
+
+  if (folderId) {
+    window.localStorage.setItem(storageKey, folderId);
+    return;
+  }
+
+  window.localStorage.removeItem(storageKey);
 }
 
 function createFolder(name: string, lectureIds: string[]) {
@@ -83,17 +132,20 @@ function lectureSummary(count: number) {
 
 export function LibraryFolderMenu({
   lectures,
+  userId,
   selectedFolderId,
   onSelectFolder,
 }: {
   lectures: AppLectureListItem[];
+  userId: string;
   selectedFolderId: string | null;
   onSelectFolder: (folderId: string | null, lectureIds: string[] | null) => void;
 }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
+  const hasRestoredSelectionRef = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [folders, setFolders] = useState<LibraryFolder[]>(() => readStoredFolders());
+  const [folders, setFolders] = useState<LibraryFolder[]>(() => readStoredFolders(userId));
   const [folderName, setFolderName] = useState("");
   const [draftLectureIds, setDraftLectureIds] = useState<string[]>([]);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
@@ -108,6 +160,35 @@ export function LibraryFolderMenu({
     setEditingName("");
     setEditingLectureIds([]);
   }
+
+  useEffect(() => {
+    if (hasRestoredSelectionRef.current) {
+      return;
+    }
+
+    hasRestoredSelectionRef.current = true;
+
+    const storedFolderId = readStoredSelectedFolderId(userId);
+
+    if (!storedFolderId) {
+      onSelectFolder(null, null);
+      return;
+    }
+
+    const storedFolder = folders.find((folder) => folder.id === storedFolderId);
+
+    if (!storedFolder) {
+      writeStoredSelectedFolderId(userId, null);
+      onSelectFolder(null, null);
+      return;
+    }
+
+    onSelectFolder(storedFolder.id, storedFolder.lectureIds);
+  }, [folders, onSelectFolder, userId]);
+
+  useEffect(() => {
+    writeStoredSelectedFolderId(userId, selectedFolderId);
+  }, [selectedFolderId, userId]);
 
   useEffect(() => {
     if (!isOpen && !isCreateModalOpen && !isEditModalOpen) {
@@ -148,9 +229,10 @@ export function LibraryFolderMenu({
     const nextSelectedFolder = folders.find((folder) => folder.id === selectedFolderId);
 
     if (!nextSelectedFolder) {
+      writeStoredSelectedFolderId(userId, null);
       onSelectFolder(null, null);
     }
-  }, [folders, onSelectFolder, selectedFolderId]);
+  }, [folders, onSelectFolder, selectedFolderId, userId]);
 
   function handleToggleMenu() {
     setIsOpen((currentValue) => !currentValue);
@@ -177,7 +259,7 @@ export function LibraryFolderMenu({
     const nextFolders = [...folders, nextFolder];
 
     setFolders(nextFolders);
-    writeStoredFolders(nextFolders);
+    writeStoredFolders(userId, nextFolders);
     onSelectFolder(nextFolder.id, nextFolder.lectureIds);
     setFolderName("");
     setDraftLectureIds([]);
@@ -213,7 +295,7 @@ export function LibraryFolderMenu({
     );
 
     setFolders(nextFolders);
-    writeStoredFolders(nextFolders);
+    writeStoredFolders(userId, nextFolders);
 
     if (selectedFolderId === editingFolderId) {
       const nextSelectedFolder = nextFolders.find((folder) => folder.id === editingFolderId);
@@ -226,7 +308,7 @@ export function LibraryFolderMenu({
   function handleDeleteFolder(folderId: string) {
     const nextFolders = folders.filter((folder) => folder.id !== folderId);
     setFolders(nextFolders);
-    writeStoredFolders(nextFolders);
+    writeStoredFolders(userId, nextFolders);
 
     if (selectedFolderId === folderId) {
       onSelectFolder(null, null);

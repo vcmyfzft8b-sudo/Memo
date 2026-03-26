@@ -186,8 +186,10 @@ const NoteRow = memo(function NoteRow({
 
 export function HomeDashboard({
   lectures,
+  userId,
 }: {
   lectures: AppLectureListItem[];
+  userId: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -432,6 +434,7 @@ export function HomeDashboard({
           <div className="dashboard-toolbar library-toolbar">
             <LibraryFolderMenu
               lectures={libraryLectures}
+              userId={userId}
               selectedFolderId={selectedFolderId}
               onSelectFolder={(folderId, lectureIds) => {
                 setSelectedFolderId(folderId);

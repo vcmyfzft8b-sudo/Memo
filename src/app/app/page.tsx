@@ -16,6 +16,6 @@ export default async function AppHomePage({
   await searchParams;
 
   return (
-    <HomeDashboard lectures={lectures} />
+    <HomeDashboard lectures={lectures} userId={user.id} />
   );
 }
