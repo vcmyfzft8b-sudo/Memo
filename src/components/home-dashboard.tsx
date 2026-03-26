@@ -113,7 +113,11 @@ const NoteRow = memo(function NoteRow({
 }: NoteRowProps) {
   return (
     <div className={`ios-row-note-card ${isMenuOpen ? "menu-open" : ""}`}>
-      <InstantLink href={`/app/lectures/${lecture.id}`} className="ios-row-note-card-link">
+      <InstantLink
+        href={`/app/lectures/${lecture.id}`}
+        prefetch={false}
+        className="ios-row-note-card-link"
+      >
         <div className="ios-row-icon" style={{ backgroundColor: "var(--surface-muted)" }}>
           <SourceIcon sourceType={lecture.source_type} />
         </div>
@@ -231,12 +235,6 @@ export function HomeDashboard({
     window.addEventListener("pointerdown", handlePointerDown);
     return () => window.removeEventListener("pointerdown", handlePointerDown);
   }, [openMenuLectureId]);
-
-  useEffect(() => {
-    for (const item of libraryLectures.slice(0, 24)) {
-      router.prefetch(`/app/lectures/${item.id}`);
-    }
-  }, [libraryLectures, router]);
 
   useEffect(() => {
     if (!renameTarget && !deleteTarget) {
