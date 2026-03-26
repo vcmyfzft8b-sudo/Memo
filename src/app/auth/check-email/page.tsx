@@ -30,42 +30,37 @@ export default async function CheckEmailPage({
   const cooldownSeconds = Number(params?.cooldownSeconds);
 
   return (
-    <main className="landing-shell auth-shell">
-      <header className="ios-nav landing-nav">
-        <div className="ios-nav-inner landing-nav-inner">
-          <Link href="/" className="landing-brand-link" aria-label={`${BRAND_NAME} home`}>
-            <BrandLogo compact />
-          </Link>
-
-          <div className="landing-nav-actions">
-            <Link href="/" className="app-back-button">
-              <ChevronLeft className="h-5 w-5" />
-              Back
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <div className="ios-content">
-        <section className="auth-stage">
-          <div className="auth-panel">
-            <p className="auth-eyebrow">Check your email</p>
-            <h1 className="auth-title">Enter your code</h1>
-            <p className="auth-copy">
-              We sent a verification code to <strong>{email}</strong>. Enter it below to continue.
-            </p>
-            <CheckEmailCard
-              email={params?.email ?? ""}
-              mode={mode}
-              next={next}
-              message={message}
-              messageType={messageType}
-              sentAt={Number.isFinite(sentAt) ? sentAt : 0}
-              cooldownSeconds={Number.isFinite(cooldownSeconds) ? cooldownSeconds : 60}
-            />
-          </div>
-        </section>
+    <main className="landing-shell landing-auth-page check-email-page">
+      <div className="check-email-topbar">
+        <Link href="/" className="app-back-button">
+          <ChevronLeft className="h-5 w-5" />
+          Back
+        </Link>
       </div>
+
+      <section className="landing-auth-wrap check-email-wrap">
+        <Link href="/" className="landing-auth-brand check-email-brand" aria-label={`${BRAND_NAME} home`}>
+          <BrandLogo compact imageSizes="(max-width: 768px) 4.6rem, 7rem" priority />
+        </Link>
+
+        <div className="check-email-hero">
+          <p className="check-email-eyebrow">Check your email</p>
+          <h1 className="check-email-title">Enter your code</h1>
+          <p className="check-email-copy">
+            We sent a verification code to <strong>{email}</strong>. Enter it below to continue.
+          </p>
+        </div>
+
+        <CheckEmailCard
+          email={params?.email ?? ""}
+          mode={mode}
+          next={next}
+          message={message}
+          messageType={messageType}
+          sentAt={Number.isFinite(sentAt) ? sentAt : 0}
+          cooldownSeconds={Number.isFinite(cooldownSeconds) ? cooldownSeconds : 60}
+        />
+      </section>
     </main>
   );
 }

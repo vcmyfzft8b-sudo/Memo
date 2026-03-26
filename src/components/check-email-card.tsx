@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 function formatCountdown(seconds: number) {
@@ -41,13 +42,13 @@ export function CheckEmailCard(props: {
   }, [resendAvailableAt]);
 
   return (
-    <>
-      <form action="/auth/email/verify" method="post" className="auth-email-form auth-code-form">
+    <div className="check-email-card">
+      <form action="/auth/email/verify" method="post" className="auth-email-form auth-code-form check-email-form">
         <input type="hidden" name="email" value={props.email} />
         <input type="hidden" name="mode" value={props.mode} />
         <input type="hidden" name="next" value={props.next} />
 
-        <label className="auth-field auth-code-field">
+        <label className="auth-field auth-code-field check-email-code-field">
           <input
             type="text"
             name="code"
@@ -57,7 +58,7 @@ export function CheckEmailCard(props: {
             maxLength={8}
             autoComplete="one-time-code"
             placeholder="Enter code"
-            className="auth-code-input"
+            className="auth-code-input check-email-code-input"
             value={code}
             onChange={(event) => {
               setCode(event.target.value.replace(/\D/g, "").slice(0, 8));
@@ -66,34 +67,34 @@ export function CheckEmailCard(props: {
           />
         </label>
 
-        <button type="submit" className="ios-primary-button auth-submit-button">
+        <button type="submit" className="ios-primary-button auth-submit-button check-email-submit">
           Continue
         </button>
       </form>
 
-      <p className={`auth-status-note ${props.messageType === "error" ? "error" : ""}`}>
+      <p className={`auth-status-note check-email-status-note ${props.messageType === "error" ? "error" : ""}`}>
         {props.message ??
           "The code expires automatically. If you didn’t get it, you can request a new one after the timer ends."}
       </p>
 
-      <div className="auth-check-actions">
+      <div className="auth-check-actions check-email-actions">
         <form action="/auth/email" method="post" className="auth-resend-form">
           <input type="hidden" name="email" value={props.email} />
           <input type="hidden" name="mode" value={props.mode} />
           <input type="hidden" name="next" value={props.next} />
           <button
             type="submit"
-            className="auth-secondary-link auth-provider-button-submit auth-tertiary-button"
+            className="auth-secondary-link auth-provider-button-submit auth-tertiary-button check-email-secondary"
             disabled={secondsLeft > 0}
             aria-disabled={secondsLeft > 0}
           >
             {secondsLeft > 0 ? `Send new code in ${formatCountdown(secondsLeft)}` : "Send new code"}
           </button>
         </form>
-        <a href="/" className="auth-secondary-link auth-tertiary-button">
+        <Link href="/" className="auth-secondary-link auth-tertiary-button check-email-secondary">
           Use another method
-        </a>
+        </Link>
       </div>
-    </>
+    </div>
   );
 }

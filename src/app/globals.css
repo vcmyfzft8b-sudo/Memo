@@ -5018,6 +5018,138 @@ select:disabled {
   font-weight: 550;
 }
 
+.check-email-page {
+  position: relative;
+}
+
+.check-email-topbar {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 20;
+}
+
+.check-email-wrap {
+  gap: 1.2rem;
+  width: min(100%, 44rem);
+}
+
+.check-email-brand {
+  margin-bottom: 1.25rem;
+}
+
+.check-email-hero {
+  display: grid;
+  gap: 0.65rem;
+  text-align: center;
+}
+
+.check-email-eyebrow {
+  margin: 0;
+  color: color-mix(in srgb, var(--tint) 92%, white 8%);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.check-email-title {
+  margin: 0;
+  color: white;
+  font-size: clamp(3rem, 8vw, 4.8rem);
+  font-weight: 750;
+  letter-spacing: -0.07em;
+  line-height: 0.96;
+}
+
+.check-email-copy {
+  margin: 0;
+  max-width: 36rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: clamp(1rem, 2.4vw, 1.28rem);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.check-email-copy strong {
+  color: white;
+  font-weight: 650;
+}
+
+.check-email-card {
+  width: min(100%, 42rem);
+  margin-top: 1rem;
+}
+
+.check-email-form {
+  gap: 0.95rem;
+}
+
+.check-email-code-field {
+  min-height: 4.9rem;
+  padding: 0 1.35rem;
+  border: 1px solid rgba(76, 91, 122, 0.9);
+  border-radius: 22px;
+  background: rgba(27, 27, 31, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 46px rgba(0, 0, 0, 0.22);
+}
+
+.check-email-code-field:focus-within {
+  border-color: color-mix(in srgb, var(--tint) 62%, white 10%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--tint) 42%, transparent),
+    0 18px 46px rgba(0, 0, 0, 0.24);
+}
+
+.check-email-code-input {
+  text-align: left;
+  letter-spacing: 0.26em;
+  color: white;
+  font-size: clamp(1.18rem, 2.7vw, 1.42rem);
+}
+
+.check-email-code-input::placeholder {
+  color: rgba(214, 221, 235, 0.48);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+}
+
+.check-email-submit {
+  min-height: 4rem;
+  border-radius: 22px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.check-email-status-note {
+  margin-top: 1rem;
+  color: rgba(214, 221, 235, 0.64);
+  font-size: 0.98rem;
+}
+
+.check-email-actions {
+  gap: 0.85rem;
+  margin-top: 1.45rem;
+}
+
+.check-email-secondary {
+  min-height: 3.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.check-email-secondary[disabled] {
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.58);
+  opacity: 1;
+}
+
 .email-entry-page {
   position: relative;
 }
@@ -5327,6 +5459,36 @@ select:disabled {
   .email-entry-topbar {
     top: 1rem;
     right: 1rem;
+  }
+
+  .check-email-topbar {
+    top: 1rem;
+    right: 1rem;
+  }
+
+  .check-email-wrap {
+    width: min(100%, 31rem);
+    gap: 1rem;
+  }
+
+  .check-email-title {
+    font-size: clamp(2.55rem, 12vw, 3.4rem);
+  }
+
+  .check-email-copy {
+    font-size: 1.02rem;
+  }
+
+  .check-email-code-field {
+    min-height: 4.45rem;
+    padding: 0 1.2rem;
+    border-radius: 20px;
+  }
+
+  .check-email-submit,
+  .check-email-secondary {
+    min-height: 4.1rem;
+    border-radius: 20px;
   }
 
   .email-entry-input {
