@@ -30,6 +30,7 @@ import { NoteSourceModal, type NoteSourceMode } from "@/components/note-source-m
 import { StatusBadge } from "@/components/status-badge";
 import { LibraryFolderMenu } from "@/components/library-folder-menu";
 import { InstantLink } from "@/components/instant-link";
+import { POLL_INTERVAL_MS } from "@/lib/constants";
 import type { AppLectureListItem } from "@/lib/types";
 import { formatCalendarDate } from "@/lib/utils";
 
@@ -90,6 +91,15 @@ function SourceIcon({ sourceType }: { sourceType: string }) {
   }
 
   return <Mic className="h-4 w-4" />;
+}
+
+function shouldPollLectureStatus(status: AppLectureListItem["status"]) {
+  return (
+    status === "uploading" ||
+    status === "queued" ||
+    status === "transcribing" ||
+    status === "generating_notes"
+  );
 }
 
 type NoteRowProps = {
@@ -221,6 +231,33 @@ export function HomeDashboard({
   useEffect(() => {
     setLibraryLectures(lectures);
   }, [lectures]);
+
+  useEffect(() => {
+    if (!libraryLectures.some((lecture) => shouldPollLectureStatus(lecture.status))) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refresh = () => {
+      if (cancelled || document.visibilityState !== "visible") {
+        return;
+      }
+
+      startTransition(() => router.refresh());
+    };
+
+    const intervalId = window.setInterval(refresh, POLL_INTERVAL_MS);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [libraryLectures, router]);
 
   useEffect(() => {
     if (!openMenuLectureId) {
