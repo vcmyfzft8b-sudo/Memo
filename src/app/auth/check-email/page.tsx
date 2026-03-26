@@ -12,6 +12,7 @@ type SearchParams = Promise<{
   mode?: string;
   next?: string;
   sentAt?: string;
+  cooldownSeconds?: string;
 }>;
 
 export default async function CheckEmailPage({
@@ -26,6 +27,7 @@ export default async function CheckEmailPage({
   const message = params?.message;
   const messageType = params?.messageType === "error" ? "error" : "info";
   const sentAt = Number(params?.sentAt);
+  const cooldownSeconds = Number(params?.cooldownSeconds);
 
   return (
     <main className="landing-shell auth-shell">
@@ -59,7 +61,7 @@ export default async function CheckEmailPage({
               message={message}
               messageType={messageType}
               sentAt={Number.isFinite(sentAt) ? sentAt : 0}
-              cooldownSeconds={60}
+              cooldownSeconds={Number.isFinite(cooldownSeconds) ? cooldownSeconds : 60}
             />
           </div>
         </section>

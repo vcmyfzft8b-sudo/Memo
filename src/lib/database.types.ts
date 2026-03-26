@@ -33,6 +33,23 @@ export interface Citation {
 export type Database = {
   public: {
     Tables: {
+      email_auth_requests: {
+        Row: {
+          id: number;
+          email: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          email: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          email?: string;
+          created_at?: string;
+        };
+      };
       profiles: {
         Row: {
           id: string;
