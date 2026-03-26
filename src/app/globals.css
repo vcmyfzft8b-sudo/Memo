@@ -1614,22 +1614,11 @@ select:disabled {
   background: color-mix(in srgb, var(--surface-solid) 98%, transparent);
   color: var(--label);
   box-shadow: var(--shadow-soft);
-  transform: translate3d(0, 0, 0);
-  transition:
-    background-color var(--motion-duration-base) var(--motion-curve-standard),
-    border-color var(--motion-duration-base) var(--motion-curve-standard),
-    box-shadow var(--motion-duration-base) var(--motion-curve-standard),
-    transform var(--motion-duration-base) var(--motion-curve-standard);
 }
 
 .library-folder-trigger.open {
   border-color: color-mix(in srgb, var(--tint) 45%, var(--separator));
   background: color-mix(in srgb, var(--surface-muted) 82%, transparent);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
-}
-
-.library-folder-trigger:hover {
-  transform: translate3d(0, -1px, 0);
 }
 
 .library-folder-trigger-icon {
@@ -1651,7 +1640,7 @@ select:disabled {
   width: 0.95rem;
   height: 0.95rem;
   color: var(--secondary-label);
-  transition: transform var(--motion-duration-base) var(--motion-curve-standard);
+  transition: transform 0.2s ease;
 }
 
 .library-folder-chevron.open {
