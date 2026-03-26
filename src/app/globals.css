@@ -4781,11 +4781,11 @@ select:disabled {
 
 .auth-panel {
   width: min(100%, 28rem);
-  padding: 1.5rem;
+  padding: 1.75rem;
   border: 1px solid color-mix(in srgb, var(--separator) 60%, transparent);
   border-radius: 28px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-solid) 98%, transparent), color-mix(in srgb, var(--surface-muted) 86%, transparent));
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-solid) 99%, transparent), color-mix(in srgb, var(--surface-muted) 90%, transparent));
   box-shadow: var(--shadow-raised);
 }
 
@@ -4880,7 +4880,7 @@ select:disabled {
 }
 
 .auth-code-form {
-  margin-top: 1.5rem;
+  margin-top: 1.4rem;
 }
 
 .auth-field {
@@ -4892,6 +4892,23 @@ select:disabled {
   border: 1px solid color-mix(in srgb, var(--separator) 72%, transparent);
   border-radius: 16px;
   background: color-mix(in srgb, var(--surface-solid) 98%, transparent);
+}
+
+.auth-code-field {
+  min-height: unset;
+  padding: 0.8rem 1rem 0.95rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  border-radius: 20px;
+}
+
+.auth-code-caption {
+  color: var(--tertiary-label);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .auth-field-icon {
@@ -4914,14 +4931,15 @@ select:disabled {
 
 .auth-code-input {
   text-align: center;
-  letter-spacing: 0.32em;
-  font-size: 1.05rem;
+  letter-spacing: 0.42em;
+  font-size: 1.3rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .auth-submit-button {
-  min-height: 3.35rem;
-  border-radius: 16px;
+  min-height: 3.55rem;
+  border-radius: 18px;
 }
 
 .auth-helper-copy,
@@ -4961,6 +4979,23 @@ select:disabled {
   margin-top: 1.5rem;
 }
 
+.auth-status-note {
+  margin-top: 0.9rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--separator) 66%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-solid) 98%, transparent);
+  color: var(--secondary-label);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.auth-status-note.error {
+  border-color: color-mix(in srgb, var(--red) 30%, var(--separator));
+  background: color-mix(in srgb, var(--red-soft) 84%, transparent);
+  color: color-mix(in srgb, var(--red) 88%, black 12%);
+}
+
 .auth-resend-form {
   display: contents;
 }
@@ -4970,6 +5005,12 @@ select:disabled {
   border: 0;
   cursor: pointer;
   font: inherit;
+}
+
+.auth-provider-button-submit[disabled] {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
 }
 
 .email-entry-page {

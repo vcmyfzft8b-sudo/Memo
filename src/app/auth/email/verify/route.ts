@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     retryUrl.searchParams.set("email", String(formData.get("email") ?? ""));
     retryUrl.searchParams.set("mode", String(formData.get("mode") ?? "login"));
     retryUrl.searchParams.set("next", normalizeNextPath(String(formData.get("next") ?? "/app")));
+    retryUrl.searchParams.set("messageType", "error");
     retryUrl.searchParams.set(
       "message",
       parsed.error.issues[0]?.message ?? "Enter the verification code from your email.",
@@ -46,11 +47,10 @@ export async function POST(request: NextRequest) {
 
   const next = normalizeNextPath(parsed.data.next);
   const { supabase, applyCookies } = await createSupabaseRouteHandlerClient();
-  const verificationType = parsed.data.mode === "signup" ? "signup" : "email";
   const { error } = await supabase.auth.verifyOtp({
     email: parsed.data.email,
     token: parsed.data.code,
-    type: verificationType,
+    type: "email",
   });
 
   if (error) {
@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
     retryUrl.searchParams.set("email", parsed.data.email);
     retryUrl.searchParams.set("mode", parsed.data.mode);
     retryUrl.searchParams.set("next", next);
+    retryUrl.searchParams.set("messageType", "error");
     retryUrl.searchParams.set("message", error.message);
     return applyCookies(NextResponse.redirect(retryUrl, { status: 303 }));
   }

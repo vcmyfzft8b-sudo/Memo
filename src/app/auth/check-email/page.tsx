@@ -2,13 +2,16 @@ import Link from "next/link";
 import { ChevronLeft, MailCheck } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand-logo";
+import { CheckEmailCard } from "@/components/check-email-card";
 import { BRAND_NAME } from "@/lib/brand";
 
 type SearchParams = Promise<{
   email?: string;
   message?: string;
+  messageType?: string;
   mode?: string;
   next?: string;
+  sentAt?: string;
 }>;
 
 export default async function CheckEmailPage({
@@ -21,6 +24,8 @@ export default async function CheckEmailPage({
   const mode = params?.mode === "signup" ? "signup" : "login";
   const next = params?.next ?? "/app";
   const message = params?.message;
+  const messageType = params?.messageType === "error" ? "error" : "info";
+  const sentAt = Number(params?.sentAt);
 
   return (
     <main className="landing-shell auth-shell">
@@ -51,57 +56,15 @@ export default async function CheckEmailPage({
               We sent a verification code to <strong>{email}</strong>. Enter it below to{" "}
               {mode === "signup" ? "finish creating your account" : "sign in"}.
             </p>
-
-            <form action="/auth/email/verify" method="post" className="auth-email-form auth-code-form">
-              <input type="hidden" name="email" value={params?.email ?? ""} />
-              <input type="hidden" name="mode" value={mode} />
-              <input type="hidden" name="next" value={next} />
-
-              <label className="auth-field">
-                <input
-                  type="text"
-                  name="code"
-                  inputMode="numeric"
-                  pattern="[0-9]{6,8}"
-                  minLength={6}
-                  maxLength={8}
-                  autoComplete="one-time-code"
-                  placeholder="Verification code"
-                  className="auth-code-input"
-                  required
-                />
-              </label>
-
-              <button type="submit" className="ios-primary-button auth-submit-button">
-                {mode === "signup" ? "Create account" : "Verify and sign in"}
-              </button>
-            </form>
-
-            <p className="auth-helper-copy">
-              {message ?? "The code expires automatically. If you didn’t get it, request another one."}
-            </p>
-
-            <div className="auth-check-actions">
-              <form action="/auth/email" method="post" className="auth-resend-form">
-                <input type="hidden" name="email" value={params?.email ?? ""} />
-                <input type="hidden" name="mode" value={mode} />
-                <input type="hidden" name="next" value={next} />
-                <button type="submit" className="auth-provider-button auth-provider-button-submit">
-                  Send new code
-                </button>
-              </form>
-              <Link
-                href={`${mode === "signup" ? "/auth/signup" : "/auth/login"}?next=${encodeURIComponent(
-                  next,
-                )}&email=${encodeURIComponent(params?.email ?? "")}`}
-                className="auth-provider-button"
-              >
-                Back to form
-              </Link>
-              <Link href="/auth/login?next=/app" className="auth-secondary-link">
-                Use another method
-              </Link>
-            </div>
+            <CheckEmailCard
+              email={params?.email ?? ""}
+              mode={mode}
+              next={next}
+              message={message}
+              messageType={messageType}
+              sentAt={Number.isFinite(sentAt) ? sentAt : 0}
+              cooldownSeconds={60}
+            />
           </div>
         </section>
       </div>

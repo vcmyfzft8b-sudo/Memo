@@ -17,6 +17,36 @@ function normalizeNextPath(value: string | undefined) {
   return value;
 }
 
+function redirectToCheckEmail(
+  request: NextRequest,
+  options: {
+    email: string;
+    mode: "login" | "signup";
+    next: string;
+    message?: string;
+    messageType?: "error" | "info";
+    sentAt?: number;
+  },
+) {
+  const successUrl = request.nextUrl.clone();
+  successUrl.pathname = "/auth/check-email";
+  successUrl.search = "";
+  successUrl.searchParams.set("email", options.email);
+  successUrl.searchParams.set("mode", options.mode);
+  successUrl.searchParams.set("next", options.next);
+  successUrl.searchParams.set("sentAt", String(options.sentAt ?? Date.now()));
+
+  if (options.message) {
+    successUrl.searchParams.set("message", options.message);
+  }
+
+  if (options.messageType) {
+    successUrl.searchParams.set("messageType", options.messageType);
+  }
+
+  return successUrl;
+}
+
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const parsed = emailAuthSchema.safeParse({
@@ -26,11 +56,15 @@ export async function POST(request: NextRequest) {
   });
 
   if (!parsed.success) {
-    const errorUrl = request.nextUrl.clone();
-    errorUrl.pathname = "/auth/error";
-    errorUrl.search = "";
-    errorUrl.searchParams.set("message", "Enter a valid email address.");
-    return NextResponse.redirect(errorUrl, { status: 303 });
+    const retryUrl = redirectToCheckEmail(request, {
+      email: String(formData.get("email") ?? ""),
+      mode: formData.get("mode") === "signup" ? "signup" : "login",
+      next: normalizeNextPath(String(formData.get("next") ?? "/app")),
+      message: "Enter a valid email address.",
+      messageType: "error",
+      sentAt: 0,
+    });
+    return NextResponse.redirect(retryUrl, { status: 303 });
   }
 
   const next = normalizeNextPath(parsed.data.next);
@@ -44,19 +78,24 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    const errorUrl = request.nextUrl.clone();
-    errorUrl.pathname = "/auth/error";
-    errorUrl.search = "";
-    errorUrl.searchParams.set("message", error.message);
-    return applyCookies(NextResponse.redirect(errorUrl, { status: 303 }));
+    const retryUrl = redirectToCheckEmail(request, {
+      email: parsed.data.email,
+      mode: parsed.data.mode,
+      next,
+      message: error.message,
+      messageType: "error",
+      sentAt: 0,
+    });
+    return applyCookies(NextResponse.redirect(retryUrl, { status: 303 }));
   }
 
-  const successUrl = request.nextUrl.clone();
-  successUrl.pathname = "/auth/check-email";
-  successUrl.search = "";
-  successUrl.searchParams.set("email", parsed.data.email);
-  successUrl.searchParams.set("mode", parsed.data.mode);
-  successUrl.searchParams.set("next", next);
+  const successUrl = redirectToCheckEmail(request, {
+    email: parsed.data.email,
+    mode: parsed.data.mode,
+    next,
+    message: "Code sent. Enter it below to continue.",
+    messageType: "info",
+  });
 
   return applyCookies(NextResponse.redirect(successUrl, { status: 303 }));
 }
