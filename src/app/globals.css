@@ -4880,7 +4880,7 @@ select:disabled {
 }
 
 .auth-code-form {
-  margin-top: 1.4rem;
+  margin-top: 1.25rem;
 }
 
 .auth-field {
@@ -4895,20 +4895,9 @@ select:disabled {
 }
 
 .auth-code-field {
-  min-height: unset;
-  padding: 0.8rem 1rem 0.95rem;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.45rem;
-  border-radius: 20px;
-}
-
-.auth-code-caption {
-  color: var(--tertiary-label);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  min-height: 3.9rem;
+  padding: 0 1.1rem;
+  border-radius: 18px;
 }
 
 .auth-field-icon {
@@ -4930,15 +4919,15 @@ select:disabled {
 }
 
 .auth-code-input {
-  text-align: center;
-  letter-spacing: 0.42em;
-  font-size: 1.3rem;
-  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.28em;
+  font-size: 1.15rem;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
 
 .auth-submit-button {
-  min-height: 3.55rem;
+  min-height: 3.45rem;
   border-radius: 18px;
 }
 
@@ -4975,24 +4964,22 @@ select:disabled {
 
 .auth-check-actions {
   display: grid;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+  gap: 0.6rem;
+  margin-top: 1.15rem;
 }
 
 .auth-status-note {
-  margin-top: 0.9rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--separator) 66%, transparent);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--surface-solid) 98%, transparent);
+  margin: 0.8rem 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--secondary-label);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   line-height: 1.5;
+  text-align: center;
 }
 
 .auth-status-note.error {
-  border-color: color-mix(in srgb, var(--red) 30%, var(--separator));
-  background: color-mix(in srgb, var(--red-soft) 84%, transparent);
   color: color-mix(in srgb, var(--red) 88%, black 12%);
 }
 
@@ -5009,8 +4996,15 @@ select:disabled {
 
 .auth-provider-button-submit[disabled] {
   cursor: not-allowed;
-  opacity: 0.58;
+  opacity: 0.52;
   transform: none;
+}
+
+.auth-tertiary-button {
+  min-height: 3rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-muted) 74%, transparent);
+  font-weight: 550;
 }
 
 .email-entry-page {

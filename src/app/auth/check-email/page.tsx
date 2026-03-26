@@ -53,8 +53,7 @@ export default async function CheckEmailPage({
             <p className="auth-eyebrow">Check your email</p>
             <h1 className="auth-title">Enter your code</h1>
             <p className="auth-copy">
-              We sent a verification code to <strong>{email}</strong>. Enter it below to{" "}
-              {mode === "signup" ? "finish creating your account" : "sign in"}.
+              We sent a verification code to <strong>{email}</strong>. Enter it below to continue.
             </p>
             <CheckEmailCard
               email={params?.email ?? ""}

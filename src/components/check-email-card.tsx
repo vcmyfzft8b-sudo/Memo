@@ -48,7 +48,6 @@ export function CheckEmailCard(props: {
         <input type="hidden" name="next" value={props.next} />
 
         <label className="auth-field auth-code-field">
-          <span className="auth-code-caption">Verification code</span>
           <input
             type="text"
             name="code"
@@ -72,10 +71,10 @@ export function CheckEmailCard(props: {
         </button>
       </form>
 
-      <div className={`auth-status-note ${props.messageType === "error" ? "error" : ""}`}>
+      <p className={`auth-status-note ${props.messageType === "error" ? "error" : ""}`}>
         {props.message ??
           "The code expires automatically. If you didn’t get it, you can request a new one after the timer ends."}
-      </div>
+      </p>
 
       <div className="auth-check-actions">
         <form action="/auth/email" method="post" className="auth-resend-form">
@@ -84,7 +83,7 @@ export function CheckEmailCard(props: {
           <input type="hidden" name="next" value={props.next} />
           <button
             type="submit"
-            className="auth-provider-button auth-provider-button-submit"
+            className="auth-secondary-link auth-provider-button-submit auth-tertiary-button"
             disabled={secondsLeft > 0}
             aria-disabled={secondsLeft > 0}
           >
@@ -95,11 +94,11 @@ export function CheckEmailCard(props: {
           href={`${props.mode === "signup" ? "/auth/signup" : "/auth/login"}?next=${encodeURIComponent(
             props.next,
           )}&email=${encodeURIComponent(props.email)}`}
-          className="auth-provider-button"
+          className="auth-secondary-link auth-tertiary-button"
         >
           Back to form
         </a>
-        <a href="/auth/login?next=/app" className="auth-secondary-link">
+        <a href="/auth/login?next=/app" className="auth-secondary-link auth-tertiary-button">
           Use another method
         </a>
       </div>
