@@ -46,6 +46,8 @@ If Google or Apple login is enabled, make sure those providers also use the same
 
 If you want in-app email code entry instead of magic links, update the Supabase email template to send the OTP token placeholder like `{{ .Token }}`.
 
+Temporary testing note: if you wire SMTP with a personal sender for short-term testing, replace it before production with a branded sender on a verified domain such as `no-reply@your-domain`. Do not ship live auth email from a personal mailbox.
+
 ## Build and run with Docker Compose
 
 On the server:

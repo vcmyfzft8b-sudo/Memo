@@ -67,6 +67,8 @@ If Google or Apple auth is enabled, update those provider settings to use the sa
 
 If you want in-app email code entry instead of magic links, update the Supabase email template to send the OTP token placeholder like `{{ .Token }}`.
 
+Temporary testing note: if you wire SMTP with a personal sender for short-term testing, replace it before production with a branded sender on a verified domain such as `no-reply@your-domain`. Do not ship live auth email from a personal mailbox.
+
 ## Deploy
 
 After the env vars are set, deploy from Vercel.
