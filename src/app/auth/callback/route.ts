@@ -1,17 +1,46 @@
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
+const validEmailOtpTypes: EmailOtpType[] = [
+  "email",
+  "signup",
+  "magiclink",
+  "recovery",
+  "invite",
+  "email_change",
+];
+
+function normalizeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/")) {
+    return "/app";
+  }
+
+  return value;
+}
+
+function normalizeEmailOtpType(value: string | null): EmailOtpType | null {
+  if (!value) {
+    return "email";
+  }
+
+  return validEmailOtpTypes.includes(value as EmailOtpType)
+    ? (value as EmailOtpType)
+    : null;
+}
+
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
+  const tokenHash = request.nextUrl.searchParams.get("token_hash");
+  const otpType = normalizeEmailOtpType(request.nextUrl.searchParams.get("type"));
   const authError = request.nextUrl.searchParams.get("error");
   const authErrorCode = request.nextUrl.searchParams.get("error_code");
   const authErrorDescription =
     request.nextUrl.searchParams.get("error_description");
-  const requestedNext = request.nextUrl.searchParams.get("next");
-  const next = requestedNext?.startsWith("/") ? requestedNext : "/app";
+  const next = normalizeNextPath(request.nextUrl.searchParams.get("next"));
 
-  if (!code) {
+  if (!code && !tokenHash) {
     const fallbackUrl = request.nextUrl.clone();
     fallbackUrl.pathname = "/auth/error";
     fallbackUrl.search = "";
@@ -28,7 +57,16 @@ export async function GET(request: NextRequest) {
   }
 
   const { supabase, applyCookies } = await createSupabaseRouteHandlerClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { error } = code
+    ? await supabase.auth.exchangeCodeForSession(code)
+    : otpType
+      ? await supabase.auth.verifyOtp({
+          token_hash: tokenHash!,
+          type: otpType,
+        })
+      : {
+          error: new Error("Invalid email verification type."),
+        };
 
   if (error) {
     const errorUrl = request.nextUrl.clone();

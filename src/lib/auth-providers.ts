@@ -3,6 +3,7 @@ import "server-only";
 import { getServerEnv } from "@/lib/server-env";
 
 type SupabaseAuthSettings = {
+  email?: boolean | { enabled?: boolean };
   external?: Record<string, boolean>;
 };
 
@@ -32,10 +33,18 @@ export async function getAuthProviderAvailability(): Promise<AuthProviderAvailab
   }
 
   const settings = (await response.json()) as SupabaseAuthSettings;
+  const emailEnabled =
+    typeof settings.email === "boolean"
+      ? settings.email
+      : typeof settings.email?.enabled === "boolean"
+        ? settings.email.enabled
+        : typeof settings.external?.email === "boolean"
+          ? settings.external.email
+          : true;
 
   return {
     apple: Boolean(settings.external?.apple),
-    email: Boolean(settings.external?.email),
+    email: emailEnabled,
     google: Boolean(settings.external?.google),
   };
 }
