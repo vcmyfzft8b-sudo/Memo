@@ -62,6 +62,15 @@ type QuizRoundSummary = {
   missedQuestionIds: string[];
 };
 
+type StudySessionSnapshot = {
+  savedAt: string;
+  activeStudyView: StudyMaterialView;
+  flashcardState: PersistedFlashcardSessionState | null;
+  quizState: PersistedQuizSessionState | null;
+};
+
+const STUDY_SESSION_STORAGE_KEY_PREFIX = "lecture-study-session:";
+
 function getTabItems({
   hasAudio,
   showsTranscript,
@@ -120,6 +129,83 @@ function shouldPollDetail(detail: LectureDetail) {
   }
 
   return false;
+}
+
+function getStudySessionStorageKey(lectureId: string) {
+  return `${STUDY_SESSION_STORAGE_KEY_PREFIX}${lectureId}`;
+}
+
+function toTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function readStudySessionSnapshot(lectureId: string): StudySessionSnapshot | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(getStudySessionStorageKey(lectureId));
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<StudySessionSnapshot>;
+    if (
+      typeof parsed.savedAt !== "string" ||
+      (parsed.activeStudyView !== "flashcards" && parsed.activeStudyView !== "quiz")
+    ) {
+      return null;
+    }
+
+    return {
+      savedAt: parsed.savedAt,
+      activeStudyView: parsed.activeStudyView,
+      flashcardState: parsed.flashcardState ?? null,
+      quizState: parsed.quizState ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeStudySessionSnapshot(lectureId: string, snapshot: StudySessionSnapshot) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getStudySessionStorageKey(lectureId), JSON.stringify(snapshot));
+  } catch {}
+}
+
+function mergeLectureDetailWithStoredStudySession(detail: LectureDetail) {
+  const snapshot = readStudySessionSnapshot(detail.lecture.id);
+  if (!snapshot) {
+    return detail;
+  }
+
+  if (toTimestamp(snapshot.savedAt) <= toTimestamp(detail.studySession?.updated_at)) {
+    return detail;
+  }
+
+  return {
+    ...detail,
+    studySession: {
+      user_id: detail.studySession?.user_id ?? detail.lecture.user_id,
+      lecture_id: detail.lecture.id,
+      active_study_view: snapshot.activeStudyView,
+      flashcard_state: snapshot.flashcardState,
+      quiz_state: snapshot.quizState,
+      created_at: detail.studySession?.created_at ?? snapshot.savedAt,
+      updated_at: snapshot.savedAt,
+    },
+  };
 }
 
 function confidenceLabel(value: FlashcardConfidenceBucket) {
@@ -573,8 +659,9 @@ export function LectureWorkspace({
   const shouldPollCurrentDetail = shouldPollDetail(detail);
 
   useEffect(() => {
-    setDetail(initialDetail);
-    setActiveStudyView(getInitialStudyView(initialDetail));
+    const nextDetail = mergeLectureDetailWithStoredStudySession(initialDetail);
+    setDetail(nextDetail);
+    setActiveStudyView(getInitialStudyView(nextDetail));
   }, [initialDetail]);
 
   useEffect(() => {
@@ -608,7 +695,9 @@ export function LectureWorkspace({
         return;
       }
 
-      const nextDetail = (await response.json()) as LectureDetail;
+      const nextDetail = mergeLectureDetailWithStoredStudySession(
+        (await response.json()) as LectureDetail,
+      );
       if (!cancelled) {
         setDetail(nextDetail);
       }
@@ -711,7 +800,8 @@ export function LectureWorkspace({
   }, [activeTab, detail.chatMessages.length, isSending]);
 
   useEffect(() => {
-    const payload = JSON.stringify({
+    const nextSavedAt = new Date().toISOString();
+    const nextSession = {
       activeStudyView,
       flashcardState:
         studyDeck.length > 0
@@ -736,9 +826,14 @@ export function LectureWorkspace({
               optionOrders: serializeQuizOptionOrders(quizOptionOrders),
             }
           : null,
-    });
+    };
+    const payload = JSON.stringify(nextSession);
 
     studySessionPayloadRef.current = payload;
+    writeStudySessionSnapshot(detail.lecture.id, {
+      ...nextSession,
+      savedAt: nextSavedAt,
+    });
 
     const timeoutId = window.setTimeout(() => {
       void fetch(`/api/lectures/${detail.lecture.id}/study-session`, {
@@ -775,8 +870,22 @@ export function LectureWorkspace({
   ]);
 
   useEffect(() => {
-    const flushStudySession = () => {
+    const flushStudySession = (preferBeacon = false) => {
       if (!studySessionPayloadRef.current) {
+        return;
+      }
+
+      if (
+        preferBeacon &&
+        typeof navigator !== "undefined" &&
+        typeof navigator.sendBeacon === "function"
+      ) {
+        navigator.sendBeacon(
+          `/api/lectures/${detail.lecture.id}/study-session`,
+          new Blob([studySessionPayloadRef.current], {
+            type: "application/json",
+          }),
+        );
         return;
       }
 
@@ -792,16 +901,20 @@ export function LectureWorkspace({
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        flushStudySession();
+        flushStudySession(true);
       }
     };
 
-    window.addEventListener("pagehide", flushStudySession);
+    const handlePageHide = () => {
+      flushStudySession(true);
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       flushStudySession();
-      window.removeEventListener("pagehide", flushStudySession);
+      window.removeEventListener("pagehide", handlePageHide);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [detail.lecture.id]);
@@ -877,7 +990,7 @@ export function LectureWorkspace({
 
     const refresh = await fetch(`/api/lectures/${detail.lecture.id}`);
     if (refresh.ok) {
-      setDetail((await refresh.json()) as LectureDetail);
+      setDetail(mergeLectureDetailWithStoredStudySession((await refresh.json()) as LectureDetail));
     }
   }
 
@@ -886,7 +999,7 @@ export function LectureWorkspace({
       cache: "no-store",
     });
     if (refresh.ok) {
-      setDetail((await refresh.json()) as LectureDetail);
+      setDetail(mergeLectureDetailWithStoredStudySession((await refresh.json()) as LectureDetail));
     }
   }
 

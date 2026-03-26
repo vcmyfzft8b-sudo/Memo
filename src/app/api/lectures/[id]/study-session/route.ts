@@ -53,7 +53,7 @@ const updateStudySessionSchema = z.object({
   quizState: quizStateSchema.nullable(),
 });
 
-export async function PATCH(
+async function updateStudySession(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
@@ -101,4 +101,18 @@ export async function PATCH(
   }
 
   return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  return updateStudySession(request, context);
+}
+
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  return updateStudySession(request, context);
 }
