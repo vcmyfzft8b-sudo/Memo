@@ -142,7 +142,7 @@ export async function AuthPageShell(props: {
                 </form>
 
                 <p className="auth-helper-copy">
-                  We&apos;ll send a secure magic link to your inbox.
+                  We&apos;ll send a verification code to your inbox.
                 </p>
               </>
             ) : null}
