@@ -7,6 +7,7 @@ import {
   Loader2,
   Mic,
   Search,
+  Type,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -167,12 +168,19 @@ export function NoteSourceModal({
   const [error, setError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isTextEditorOpen, setIsTextEditorOpen] = useState(false);
 
   useEffect(() => {
     if (mode) {
       setSelectedMode(mode);
     }
   }, [mode]);
+
+  useEffect(() => {
+    if (selectedMode !== "text" && isTextEditorOpen) {
+      setIsTextEditorOpen(false);
+    }
+  }, [isTextEditorOpen, selectedMode]);
 
   const preparedRecording = audioSource?.origin === "recording" ? audioSource : null;
   const preparedUpload = audioSource?.origin === "upload" ? audioSource : null;
@@ -236,6 +244,7 @@ export function NoteSourceModal({
     setError(null);
     setBusyLabel(null);
     setIsCancelling(false);
+    setIsTextEditorOpen(false);
     activeRequestControllerRef.current = null;
     createdLectureIdRef.current = null;
     cancelRequestedRef.current = false;
@@ -295,6 +304,11 @@ export function NoteSourceModal({
   }, [deleteCreatedLecture]);
 
   const requestClose = useCallback(() => {
+    if (isTextEditorOpen) {
+      setIsTextEditorOpen(false);
+      return;
+    }
+
     if (isRecording) {
       stopRecording();
     }
@@ -305,7 +319,7 @@ export function NoteSourceModal({
     }
 
     onClose();
-  }, [busyLabel, handleCancelBusyAction, isRecording, onClose]);
+  }, [busyLabel, handleCancelBusyAction, isRecording, isTextEditorOpen, onClose]);
 
   useEffect(() => {
     setRecordingSupported(typeof window !== "undefined" && "MediaRecorder" in window);
@@ -1005,24 +1019,26 @@ export function NoteSourceModal({
 
               {selectedMode === "text" ? (
                 <>
-                  <div>
-                    <label className="note-source-field-label">
-                      Text
-                    </label>
-                    <textarea
-                      value={textValue}
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
+                  <div className="note-source-docs-actions">
+                    <button
+                      type="button"
+                      className="ios-secondary-button note-source-docs-action-button"
+                      disabled={Boolean(busyLabel)}
+                      onClick={() => pdfInputRef.current?.click()}
+                    >
+                      <UploadCloud className="h-4 w-4" />
+                      {pdfSource ? "Change doc" : "Choose doc"}
+                    </button>
 
-                        if (pdfSource && nextValue.trim().length > 0) {
-                          setPdfSource(null);
-                        }
-
-                        setTextValue(nextValue);
-                      }}
-                      className="ios-textarea note-source-docs-textarea"
-                      placeholder="Paste lecture or article content..."
-                    />
+                    <button
+                      type="button"
+                      className="ios-secondary-button note-source-docs-action-button"
+                      disabled={Boolean(busyLabel)}
+                      onClick={() => setIsTextEditorOpen(true)}
+                    >
+                      <Type className="h-4 w-4" />
+                      {trimmedTextValue ? "Edit text" : "Paste text"}
+                    </button>
                   </div>
 
                   {pdfSource ? (
@@ -1035,6 +1051,18 @@ export function NoteSourceModal({
                     </div>
                   ) : null}
 
+                  {!pdfSource && trimmedTextValue ? (
+                    <div className="ios-card note-source-docs-file-card">
+                      <p className="note-source-card-label">Text added</p>
+                      <p className="ios-row-title note-source-docs-file-name">
+                        {trimmedTextValue.split(/\s+/).filter(Boolean).length} words ready
+                      </p>
+                      <p className="ios-row-subtitle note-source-docs-file-copy">
+                        Open Paste text to review or replace it.
+                      </p>
+                    </div>
+                  ) : null}
+
                   <input
                     ref={pdfInputRef}
                     type="file"
@@ -1042,16 +1070,6 @@ export function NoteSourceModal({
                     onChange={handlePdfPick}
                     className="hidden"
                   />
-
-                  <button
-                    type="button"
-                    className="ios-secondary-button note-source-docs-picker"
-                    disabled={Boolean(busyLabel)}
-                    onClick={() => pdfInputRef.current?.click()}
-                  >
-                    <UploadCloud className="h-4 w-4" />
-                    {pdfSource ? "Choose another document" : "Choose document file"}
-                  </button>
 
                   <p className="ios-row-subtitle note-source-docs-support-copy">
                     PDF, TXT, Markdown, HTML, RTF, and DOCX are supported up to 4 MB.
@@ -1096,6 +1114,84 @@ export function NoteSourceModal({
           </section>
         </div>
       </div>
+
+      {selectedMode === "text" && isTextEditorOpen ? (
+        <>
+          <div
+            className="ios-sheet-backdrop note-source-subsheet-backdrop"
+            onClick={() => setIsTextEditorOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="ios-sheet-wrap note-source-subsheet-wrap" role="presentation">
+            <div className="ios-sheet-stack note-source-subsheet-stack">
+              <section
+                className="ios-sheet dashboard-note-dialog note-source-subsheet"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="paste-text-title"
+              >
+                <div className="ios-sheet-header">
+                  <h2 id="paste-text-title" className="ios-sheet-title">
+                    Paste text
+                  </h2>
+                  <button
+                    type="button"
+                    className="app-close-button ios-sheet-header-close"
+                    onClick={() => setIsTextEditorOpen(false)}
+                    aria-label="Close paste text dialog"
+                    disabled={Boolean(busyLabel)}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="dashboard-note-dialog-body">
+                  <p className="ios-subtitle dashboard-note-dialog-copy">
+                    Paste lecture notes, slides, or article text here.
+                  </p>
+
+                  <textarea
+                    value={textValue}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+
+                      if (pdfSource && nextValue.trim().length > 0) {
+                        setPdfSource(null);
+                      }
+
+                      setTextValue(nextValue);
+                    }}
+                    className="ios-textarea note-source-subsheet-textarea"
+                    placeholder="Paste lecture or article content..."
+                    autoFocus
+                  />
+
+                  <div className="dashboard-note-dialog-actions">
+                    <button
+                      type="button"
+                      className="ios-primary-button"
+                      disabled={Boolean(busyLabel)}
+                      onClick={() => setIsTextEditorOpen(false)}
+                    >
+                      Done
+                    </button>
+                    {textValue.trim().length > 0 ? (
+                      <button
+                        type="button"
+                        className="ios-secondary-button"
+                        disabled={Boolean(busyLabel)}
+                        onClick={() => setTextValue("")}
+                      >
+                        Clear text
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </>
+      ) : null}
     </>
   );
 }
