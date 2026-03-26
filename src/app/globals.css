@@ -5947,15 +5947,11 @@ select:disabled {
 
 @media (min-width: 768px) {
   .ios-content {
-    padding: 1.4rem 1.5rem 2.75rem;
+    padding: 1.4rem 1.5rem calc(env(safe-area-inset-bottom) + 9.1rem);
   }
 
   .app-shell-content {
     padding-top: 0.9rem;
-  }
-
-  .home-dashboard {
-    padding-bottom: 0;
   }
 
   .lecture-workspace {
@@ -5992,6 +5988,14 @@ select:disabled {
 }
 
 @media (min-width: 1100px) {
+  .ios-content {
+    padding: 1.4rem 1.5rem 2.75rem;
+  }
+
+  .home-dashboard {
+    padding-bottom: 0;
+  }
+
   .lecture-main-column {
     max-width: 1320px;
   }
