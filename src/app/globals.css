@@ -1183,11 +1183,12 @@ select:disabled {
 .note-source-subsheet-stack {
   width: min(100%, 31rem);
   margin: auto;
-  transform: translateY(-2.75rem);
+  transform: translateY(0);
 }
 
 .note-source-subsheet-wrap.keyboard-open .note-source-subsheet-stack {
   margin: auto;
+  transform: translateY(-3.25rem);
 }
 
 .note-source-subsheet {
