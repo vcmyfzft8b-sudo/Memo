@@ -115,7 +115,6 @@ const NoteRow = memo(function NoteRow({
     <div className={`ios-row-note-card ${isMenuOpen ? "menu-open" : ""}`}>
       <InstantLink
         href={`/app/lectures/${lecture.id}`}
-        prefetch={false}
         className="ios-row-note-card-link"
       >
         <div className="ios-row-icon" style={{ backgroundColor: "var(--surface-muted)" }}>
