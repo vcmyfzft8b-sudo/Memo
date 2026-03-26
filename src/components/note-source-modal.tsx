@@ -11,7 +11,7 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createAudioLectureWithProcessingChunks } from "@/lib/audio-lecture-upload";
@@ -169,6 +169,7 @@ export function NoteSourceModal({
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isTextEditorOpen, setIsTextEditorOpen] = useState(false);
+  const [textEditorKeyboardOffset, setTextEditorKeyboardOffset] = useState(0);
 
   useEffect(() => {
     if (mode) {
@@ -181,6 +182,40 @@ export function NoteSourceModal({
       setIsTextEditorOpen(false);
     }
   }, [isTextEditorOpen, selectedMode]);
+
+  useEffect(() => {
+    if (!isTextEditorOpen || typeof window === "undefined") {
+      setTextEditorKeyboardOffset(0);
+      return;
+    }
+
+    const viewport = window.visualViewport;
+
+    if (!viewport) {
+      setTextEditorKeyboardOffset(0);
+      return;
+    }
+
+    const updateKeyboardOffset = () => {
+      const keyboardOffset = Math.max(
+        0,
+        Math.round(window.innerHeight - viewport.height - viewport.offsetTop),
+      );
+
+      setTextEditorKeyboardOffset(keyboardOffset > 120 ? keyboardOffset : 0);
+    };
+
+    updateKeyboardOffset();
+    viewport.addEventListener("resize", updateKeyboardOffset);
+    viewport.addEventListener("scroll", updateKeyboardOffset);
+    window.addEventListener("orientationchange", updateKeyboardOffset);
+
+    return () => {
+      viewport.removeEventListener("resize", updateKeyboardOffset);
+      viewport.removeEventListener("scroll", updateKeyboardOffset);
+      window.removeEventListener("orientationchange", updateKeyboardOffset);
+    };
+  }, [isTextEditorOpen]);
 
   const preparedRecording = audioSource?.origin === "recording" ? audioSource : null;
   const preparedUpload = audioSource?.origin === "upload" ? audioSource : null;
@@ -1122,7 +1157,17 @@ export function NoteSourceModal({
             onClick={() => setIsTextEditorOpen(false)}
             aria-hidden="true"
           />
-          <div className="ios-sheet-wrap note-source-subsheet-wrap" role="presentation">
+          <div
+            className={`ios-sheet-wrap note-source-subsheet-wrap ${
+              textEditorKeyboardOffset > 0 ? "keyboard-open" : ""
+            }`}
+            style={
+              {
+                "--text-editor-keyboard-offset": `${textEditorKeyboardOffset}px`,
+              } as CSSProperties
+            }
+            role="presentation"
+          >
             <div className="ios-sheet-stack note-source-subsheet-stack">
               <section
                 className="ios-sheet dashboard-note-dialog note-source-subsheet"

@@ -1166,8 +1166,8 @@ select:disabled {
 
 .note-source-subsheet-wrap {
   z-index: 63;
-  align-items: stretch;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   padding:
     max(1rem, env(safe-area-inset-top))
     1rem
@@ -1175,9 +1175,22 @@ select:disabled {
   overflow-y: auto;
 }
 
+.note-source-subsheet-wrap.keyboard-open {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-bottom: calc(
+    max(0.75rem, env(safe-area-inset-bottom)) + var(--text-editor-keyboard-offset, 0px)
+  );
+}
+
 .note-source-subsheet-stack {
   width: min(100%, 34rem);
-  margin: auto auto 0;
+  margin: auto;
+}
+
+.note-source-subsheet-wrap.keyboard-open .note-source-subsheet-stack {
+  margin: 0 auto;
 }
 
 .note-source-subsheet {
@@ -1186,11 +1199,21 @@ select:disabled {
   overflow-y: auto;
 }
 
+.note-source-subsheet-wrap.keyboard-open .note-source-subsheet {
+  max-height: calc(
+    100dvh - var(--text-editor-keyboard-offset, 0px) - max(1.5rem, env(safe-area-inset-top) + env(safe-area-inset-bottom))
+  );
+}
+
 .note-source-subsheet-textarea {
   min-height: 11rem;
   max-height: min(32dvh, 16rem);
   padding: 0.9rem 1rem;
   line-height: 1.5;
+}
+
+.note-source-subsheet-wrap.keyboard-open .note-source-subsheet-textarea {
+  max-height: min(24dvh, 10rem);
 }
 
 .ios-meta {
