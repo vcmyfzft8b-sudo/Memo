@@ -2010,7 +2010,7 @@ select:disabled {
 }
 
 .folder.open .folder__front {
-  transform: translateY(5px) skew(9deg) scaleY(0.76) translateZ(0);
+  transform: translateY(8px) skew(14deg) scaleY(0.62) translateZ(0);
 }
 
 .folder__back {
@@ -2065,17 +2065,17 @@ select:disabled {
 }
 
 .folder.open .paper:nth-child(1) {
-  transform: translate(-50%, 1px) translateZ(0);
-  opacity: 1;
-}
-
-.folder.open .paper:nth-child(2) {
   transform: translate(-50%, -1px) translateZ(0);
   opacity: 1;
 }
 
-.folder.open .paper:nth-child(3) {
+.folder.open .paper:nth-child(2) {
   transform: translate(-50%, -3px) translateZ(0);
+  opacity: 1;
+}
+
+.folder.open .paper:nth-child(3) {
+  transform: translate(-50%, -5px) translateZ(0);
   opacity: 1;
 }
 
@@ -2099,7 +2099,7 @@ select:disabled {
 }
 
 .folder.open .folder__front.right {
-  transform: translateY(5px) skew(-9deg) scaleY(0.76) translateZ(0);
+  transform: translateY(8px) skew(-14deg) scaleY(0.62) translateZ(0);
 }
 
 .notes-search {
