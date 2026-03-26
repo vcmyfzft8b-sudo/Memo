@@ -2020,6 +2020,12 @@ select:disabled {
   background: var(--folder-back-color);
   border-radius: 0 7px 7px 7px;
   transform: translateZ(0);
+  will-change: transform;
+  transition: transform var(--motion-duration-base) var(--motion-curve-soft);
+}
+
+.folder.open .folder__back {
+  transform: translate3d(0, -4px, 0);
 }
 
 .folder__back::after {
