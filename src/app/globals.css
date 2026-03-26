@@ -1125,6 +1125,42 @@ select:disabled {
   padding-inline: 4px;
 }
 
+.note-source-docs-textarea {
+  min-height: 5.75rem;
+  max-height: 8.5rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.note-source-docs-file-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.95rem 1rem;
+}
+
+.note-source-docs-file-name {
+  margin-top: 0.15rem;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.note-source-docs-file-copy {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.note-source-docs-picker {
+  min-height: 2.8rem;
+  border-radius: 14px;
+}
+
+.note-source-docs-support-copy {
+  margin-top: -0.1rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .ios-meta {
   color: var(--secondary-label);
   font-size: 0.85rem;

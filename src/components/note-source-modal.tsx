@@ -1020,17 +1020,17 @@ export function NoteSourceModal({
 
                         setTextValue(nextValue);
                       }}
-                      className="ios-textarea"
+                      className="ios-textarea note-source-docs-textarea"
                       placeholder="Paste lecture or article content..."
                     />
                   </div>
 
                   {pdfSource ? (
-                    <div className="ios-card">
-                      <p className="note-source-card-label">Selected file</p>
-                      <p className="ios-row-title mt-3">{pdfSource.name}</p>
-                      <p className="ios-row-subtitle">
-                        This file will be used until you start typing text again.
+                    <div className="ios-card note-source-docs-file-card">
+                      <p className="note-source-card-label">Document selected</p>
+                      <p className="ios-row-title note-source-docs-file-name">{pdfSource.name}</p>
+                      <p className="ios-row-subtitle note-source-docs-file-copy">
+                        Used until you start typing again.
                       </p>
                     </div>
                   ) : null}
@@ -1045,7 +1045,7 @@ export function NoteSourceModal({
 
                   <button
                     type="button"
-                    className="ios-secondary-button"
+                    className="ios-secondary-button note-source-docs-picker"
                     disabled={Boolean(busyLabel)}
                     onClick={() => pdfInputRef.current?.click()}
                   >
@@ -1053,7 +1053,7 @@ export function NoteSourceModal({
                     {pdfSource ? "Choose another document" : "Choose document file"}
                   </button>
 
-                  <p className="ios-row-subtitle">
+                  <p className="ios-row-subtitle note-source-docs-support-copy">
                     PDF, TXT, Markdown, HTML, RTF, and DOCX are supported up to 4 MB.
                   </p>
 
