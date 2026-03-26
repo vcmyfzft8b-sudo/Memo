@@ -749,7 +749,6 @@ export function LectureWorkspace({
     setRepeatQueue(nextState.repeatQueue);
     setReviewCycle(nextState.reviewCycle);
     setCycleCardCount(nextState.cycleCardCount);
-    setIsFlashcardFlipped(false);
     setFlashcardRoundSummary(nextState.roundSummary);
     setFlashcardSessionResults(nextState.sessionResults);
     setFlashcardExitAnimation(null);
