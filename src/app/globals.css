@@ -1166,20 +1166,29 @@ select:disabled {
 
 .note-source-subsheet-wrap {
   z-index: 63;
-  padding: 1rem;
+  align-items: stretch;
+  justify-content: flex-end;
+  padding:
+    max(1rem, env(safe-area-inset-top))
+    1rem
+    max(1rem, env(safe-area-inset-bottom));
+  overflow-y: auto;
 }
 
 .note-source-subsheet-stack {
   width: min(100%, 34rem);
+  margin: auto auto 0;
 }
 
 .note-source-subsheet {
   max-width: none;
+  max-height: calc(100dvh - max(2rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  overflow-y: auto;
 }
 
 .note-source-subsheet-textarea {
   min-height: 11rem;
-  max-height: min(45vh, 18rem);
+  max-height: min(32dvh, 16rem);
   padding: 0.9rem 1rem;
   line-height: 1.5;
 }
