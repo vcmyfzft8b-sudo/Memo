@@ -65,6 +65,8 @@ In Supabase Auth:
 
 If Google or Apple auth is enabled, update those provider settings to use the same production callback base URL.
 
+If you want in-app email code entry instead of magic links, update the Supabase email template to send the OTP token placeholder like `{{ .Token }}`.
+
 ## Deploy
 
 After the env vars are set, deploy from Vercel.

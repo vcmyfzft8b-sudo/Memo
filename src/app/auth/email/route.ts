@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getPublicEnv } from "@/lib/public-env";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
 const emailAuthSchema = z.object({
@@ -35,15 +34,11 @@ export async function POST(request: NextRequest) {
   }
 
   const next = normalizeNextPath(parsed.data.next);
-  const { siteUrl } = getPublicEnv();
   const { supabase, applyCookies } = await createSupabaseRouteHandlerClient();
-  const callbackUrl = new URL("/auth/callback", siteUrl);
-  callbackUrl.searchParams.set("next", next);
 
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
     options: {
-      emailRedirectTo: callbackUrl.toString(),
       shouldCreateUser: parsed.data.mode === "signup",
     },
   });

@@ -6,6 +6,7 @@ import { BRAND_NAME } from "@/lib/brand";
 
 type SearchParams = Promise<{
   email?: string;
+  message?: string;
   mode?: string;
   next?: string;
 }>;
@@ -19,6 +20,7 @@ export default async function CheckEmailPage({
   const email = params?.email ?? "your inbox";
   const mode = params?.mode === "signup" ? "signup" : "login";
   const next = params?.next ?? "/app";
+  const message = params?.message;
 
   return (
     <main className="landing-shell auth-shell">
@@ -44,13 +46,50 @@ export default async function CheckEmailPage({
               <MailCheck className="h-6 w-6" />
             </div>
             <p className="auth-eyebrow">Check your email</p>
-            <h1 className="auth-title">Magic link sent</h1>
+            <h1 className="auth-title">Enter your code</h1>
             <p className="auth-copy">
-              We sent a secure link to <strong>{email}</strong>. Open it on this device to{" "}
+              We sent a 6-digit verification code to <strong>{email}</strong>. Enter it below to{" "}
               {mode === "signup" ? "finish creating your account" : "sign in"}.
             </p>
 
+            <form action="/auth/email/verify" method="post" className="auth-email-form auth-code-form">
+              <input type="hidden" name="email" value={params?.email ?? ""} />
+              <input type="hidden" name="mode" value={mode} />
+              <input type="hidden" name="next" value={next} />
+
+              <label className="auth-field">
+                <input
+                  type="text"
+                  name="code"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  minLength={6}
+                  maxLength={6}
+                  autoComplete="one-time-code"
+                  placeholder="6-digit code"
+                  className="auth-code-input"
+                  required
+                />
+              </label>
+
+              <button type="submit" className="ios-primary-button auth-submit-button">
+                {mode === "signup" ? "Create account" : "Verify and sign in"}
+              </button>
+            </form>
+
+            <p className="auth-helper-copy">
+              {message ?? "The code expires automatically. If you didn’t get it, request another one."}
+            </p>
+
             <div className="auth-check-actions">
+              <form action="/auth/email" method="post" className="auth-resend-form">
+                <input type="hidden" name="email" value={params?.email ?? ""} />
+                <input type="hidden" name="mode" value={mode} />
+                <input type="hidden" name="next" value={next} />
+                <button type="submit" className="auth-provider-button auth-provider-button-submit">
+                  Send new code
+                </button>
+              </form>
               <Link
                 href={`${mode === "signup" ? "/auth/signup" : "/auth/login"}?next=${encodeURIComponent(
                   next,

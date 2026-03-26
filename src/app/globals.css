@@ -4879,6 +4879,10 @@ select:disabled {
   gap: 0.75rem;
 }
 
+.auth-code-form {
+  margin-top: 1.5rem;
+}
+
 .auth-field {
   display: flex;
   align-items: center;
@@ -4906,6 +4910,13 @@ select:disabled {
 
 .auth-field input::placeholder {
   color: var(--tertiary-label);
+}
+
+.auth-code-input {
+  text-align: center;
+  letter-spacing: 0.32em;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .auth-submit-button {
@@ -4948,6 +4959,17 @@ select:disabled {
   display: grid;
   gap: 0.75rem;
   margin-top: 1.5rem;
+}
+
+.auth-resend-form {
+  display: contents;
+}
+
+.auth-provider-button-submit {
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 .email-entry-page {

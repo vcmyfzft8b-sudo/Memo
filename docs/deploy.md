@@ -44,6 +44,8 @@ Before you switch traffic to production, update Supabase Auth settings:
 
 If Google or Apple login is enabled, make sure those providers also use the same production callback base URL.
 
+If you want in-app email code entry instead of magic links, update the Supabase email template to send the OTP token placeholder like `{{ .Token }}`.
+
 ## Build and run with Docker Compose
 
 On the server:

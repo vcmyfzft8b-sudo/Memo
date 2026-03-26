@@ -80,6 +80,8 @@ PREVIEW_AUTH_BYPASS=
 - Google
 - Apple (optional)
 
+For email code login, update the Supabase email template to include the OTP token placeholder such as `{{ .Token }}` so users receive a code they can type into the app.
+
 6. Start the app:
 
 ```bash
