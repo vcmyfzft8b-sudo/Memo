@@ -386,7 +386,7 @@ export function LibraryFolderMenu({
 
               <button
                 type="button"
-                className="library-folder-option"
+                className="library-folder-option library-folder-option-action"
                 onClick={() => {
                   setFolderName("");
                   setDraftLectureIds([]);
@@ -407,7 +407,7 @@ export function LibraryFolderMenu({
 
               <button
                 type="button"
-                className="library-folder-option"
+                className="library-folder-option library-folder-option-action"
                 onClick={handleOpenEditModal}
               >
                 <span className="library-folder-option-copy">
