@@ -1715,6 +1715,8 @@ select:disabled {
 .library-folder-edit-list {
   display: grid;
   gap: 0.65rem;
+  padding: 0.14rem;
+  box-sizing: border-box;
 }
 
 .library-folder-option,
