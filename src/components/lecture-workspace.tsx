@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  ArrowUp,
+  Download,
   Loader2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1898,7 +1900,7 @@ export function LectureWorkspace({
                 className="lecture-chat-send"
                 aria-label="Send message"
               >
-                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <EmojiIcon symbol="📨" size="1rem" />}
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
               </button>
             </div>
           </form>
@@ -1975,7 +1977,7 @@ export function LectureWorkspace({
                   {isExportingPdf ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <EmojiIcon symbol="⬇️" size="1rem" />
+                    <Download className="h-4 w-4" />
                   )}
                 </button>
               ) : null}
