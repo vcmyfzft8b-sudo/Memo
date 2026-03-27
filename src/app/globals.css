@@ -453,11 +453,11 @@ select:disabled {
 }
 
 .desktop-sidebar-link:hover {
-  background: color-mix(in srgb, var(--surface-solid) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-solid) 42%, transparent);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 8px 18px rgba(0, 0, 0, 0.04);
-  transform: translateX(2px);
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 4px 10px rgba(0, 0, 0, 0.025);
+  transform: translateX(1px);
 }
 
 .desktop-sidebar-link:active {
@@ -744,22 +744,22 @@ select:disabled {
 @media (hover: hover) and (pointer: fine) {
   .ios-tab-item:hover {
     color: var(--label);
-    transform: translateY(-1px);
+    transform: translateY(-0.5px);
   }
 
   .ios-tab-item:hover::after {
-    opacity: 0.72;
-    transform: scale(1);
+    opacity: 0.38;
+    transform: scale(0.97);
   }
 
   .ios-tab-item:hover .ios-tab-item-icon {
-    background: rgba(255, 255, 255, 0.42);
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.07);
-    transform: translateY(-1px) scale(1.02);
+    background: rgba(255, 255, 255, 0.24);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+    transform: translateY(0) scale(1.01);
   }
 
   .ios-tab-item:hover .ios-tab-item-label {
-    transform: translateY(0.5px);
+    transform: none;
   }
 }
 
