@@ -28,6 +28,16 @@ export async function POST(request: NextRequest) {
     }),
   );
 
+  request.cookies
+    .getAll()
+    .filter((cookie) => cookie.name.startsWith("sb-"))
+    .forEach((cookie) => {
+      response.cookies.set(cookie.name, "", {
+        path: "/",
+        maxAge: 0,
+      });
+    });
+
   response.cookies.set(PREVIEW_AUTH_BYPASS_DISABLED_COOKIE, "true", {
     httpOnly: true,
     sameSite: "lax",
