@@ -147,6 +147,14 @@ export async function AuthPageShell(props: {
               </>
             ) : null}
 
+            <p className="auth-legal-copy">
+              By continuing, you agree to {`${BRAND_NAME}'s`}{" "}
+              <Link href="/app/support/terms-of-use">Terms of use</Link> and{" "}
+              <Link href="/app/support/privacy-policy">Privacy policy</Link>, including
+              processing the audio, text, documents, and links you submit with AI providers
+              to generate transcripts, notes, flashcards, quizzes, and chat responses.
+            </p>
+
             <p className="auth-switch-copy">
               {switchCopy}{" "}
               <Link href={`${switchHref}?next=${encodeURIComponent(props.next)}`}>

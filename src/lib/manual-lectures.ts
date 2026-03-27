@@ -1,5 +1,8 @@
 import "server-only";
 
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+
 import mammoth from "mammoth";
 import { z } from "zod";
 
@@ -28,6 +31,10 @@ const pdfExtractionSchema = z.object({
   title: z.string().min(1),
   text: z.string().min(120),
 });
+
+const MAX_LINK_FETCH_REDIRECTS = 3;
+const MAX_LINK_FETCH_BYTES = 1_000_000;
+const LINK_FETCH_TIMEOUT_MS = 10_000;
 
 let pdfJsPromise: Promise<typeof import("pdfjs-dist/legacy/build/pdf.mjs")> | null =
   null;
@@ -110,15 +117,210 @@ function htmlToText(html: string) {
   );
 }
 
+function isPrivateIpv4(value: string) {
+  const octets = value.split(".").map((part) => Number(part));
+
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return true;
+  }
+
+  const [a, b] = octets;
+
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
+}
+
+function expandIpv6(value: string) {
+  if (!value.includes("::")) {
+    return value.split(":");
+  }
+
+  const [left, right] = value.split("::");
+  const leftParts = left.length > 0 ? left.split(":") : [];
+  const rightParts = right.length > 0 ? right.split(":") : [];
+  const missingGroups = 8 - (leftParts.length + rightParts.length);
+
+  return [
+    ...leftParts,
+    ...Array.from({ length: Math.max(missingGroups, 0) }, () => "0"),
+    ...rightParts,
+  ];
+}
+
+function isPrivateIpv6(value: string) {
+  const normalized = value.toLowerCase();
+
+  if (normalized === "::1") {
+    return true;
+  }
+
+  if (normalized.startsWith("fe80:") || normalized.startsWith("fc") || normalized.startsWith("fd")) {
+    return true;
+  }
+
+  const groups = expandIpv6(normalized).map((part) => part.padStart(4, "0"));
+  const firstGroup = Number.parseInt(groups[0] ?? "0", 16);
+
+  return (firstGroup & 0xfe00) === 0xfc00;
+}
+
+function isDisallowedIpAddress(value: string) {
+  const version = isIP(value);
+
+  if (version === 4) {
+    return isPrivateIpv4(value);
+  }
+
+  if (version === 6) {
+    return isPrivateIpv6(value);
+  }
+
+  return true;
+}
+
+async function assertPublicHostname(hostname: string) {
+  const normalizedHostname = hostname.trim().toLowerCase();
+
+  if (
+    normalizedHostname === "localhost" ||
+    normalizedHostname.endsWith(".localhost") ||
+    normalizedHostname.endsWith(".local")
+  ) {
+    throw new Error("Private network addresses are not allowed.");
+  }
+
+  if (isIP(normalizedHostname) !== 0) {
+    if (isDisallowedIpAddress(normalizedHostname)) {
+      throw new Error("Private network addresses are not allowed.");
+    }
+
+    return;
+  }
+
+  const addresses = await lookup(normalizedHostname, { all: true, verbatim: true });
+
+  if (
+    addresses.length === 0 ||
+    addresses.some((entry) => isDisallowedIpAddress(entry.address))
+  ) {
+    throw new Error("Private network addresses are not allowed.");
+  }
+}
+
+function resolveRedirectUrl(baseUrl: URL, location: string) {
+  try {
+    return new URL(location, baseUrl);
+  } catch {
+    throw new Error("The link returned an invalid redirect.");
+  }
+}
+
+async function readResponseBodyWithLimit(response: Response, maxBytes: number) {
+  const contentLength = Number(response.headers.get("content-length"));
+
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new Error("The linked page is too large to import.");
+  }
+
+  if (!response.body) {
+    return "";
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let body = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > maxBytes) {
+        throw new Error("The linked page is too large to import.");
+      }
+
+      body += decoder.decode(value, { stream: true });
+    }
+
+    body += decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
+
+  return body;
+}
+
+async function fetchReadableWebpageResponse(targetUrl: URL, redirectCount = 0): Promise<{
+  url: URL;
+  response: Response;
+}> {
+  if (redirectCount > MAX_LINK_FETCH_REDIRECTS) {
+    throw new Error("Too many redirects. Use the final page URL directly.");
+  }
+
+  await assertPublicHostname(targetUrl.hostname);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LINK_FETCH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(targetUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; NotaBot/1.0; +https://nota.local)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "manual",
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+
+      if (!location) {
+        throw new Error("The link returned an invalid redirect.");
+      }
+
+      const nextUrl = resolveRedirectUrl(targetUrl, location);
+
+      if (nextUrl.protocol !== "http:" && nextUrl.protocol !== "https:") {
+        throw new Error("Only http and https links are supported.");
+      }
+
+      return fetchReadableWebpageResponse(nextUrl, redirectCount + 1);
+    }
+
+    return {
+      url: targetUrl,
+      response,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("The link took too long to respond.");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function fetchReadableWebpage(params: { url: string }) {
-  const response = await fetch(params.url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; NotaBot/1.0; +https://nota.local)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-    redirect: "follow",
-  });
+  const targetUrl = new URL(params.url);
+  const { response } = await fetchReadableWebpageResponse(targetUrl);
 
   if (!response.ok) {
     throw new Error("The link could not be loaded.");
@@ -130,7 +332,7 @@ export async function fetchReadableWebpage(params: { url: string }) {
     throw new Error("Only standard web pages are supported for link summaries.");
   }
 
-  const html = await response.text();
+  const html = await readResponseBodyWithLimit(response, MAX_LINK_FETCH_BYTES);
   const title = extractTitle(html);
   const description = extractMetaDescription(html);
   const text = htmlToText(html);

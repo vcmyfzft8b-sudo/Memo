@@ -96,7 +96,10 @@ export default async function HomePage() {
 
         <p className="landing-auth-legal">
           By continuing, you agree to {`${BRAND_NAME}'s`}{" "}
-          <Link href="/app/support/privacy-policy">Privacy policy</Link>.
+          <Link href="/app/support/terms-of-use">Terms of use</Link> and{" "}
+          <Link href="/app/support/privacy-policy">Privacy policy</Link>, including AI
+          processing of the audio, text, documents, and links you submit to generate
+          transcripts, notes, flashcards, quizzes, and chat responses.
         </p>
 
         {!hasPublicSupabaseEnv ? (

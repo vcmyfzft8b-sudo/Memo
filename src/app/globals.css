@@ -5193,12 +5193,25 @@ select:disabled {
 }
 
 .auth-helper-copy,
+.auth-legal-copy,
 .auth-switch-copy {
   margin: 0.85rem 0 0;
   text-align: center;
   color: var(--secondary-label);
   font-size: 0.92rem;
   line-height: 1.45;
+}
+
+.auth-legal-copy {
+  margin-top: 1rem;
+  font-size: 0.86rem;
+}
+
+.auth-legal-copy a {
+  color: var(--label);
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 .auth-switch-copy a,
