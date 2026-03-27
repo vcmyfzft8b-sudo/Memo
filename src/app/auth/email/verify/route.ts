@@ -1,26 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseFormDataRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
+import {
+  emailAddressSchema,
+  nextPathSchema,
+  normalizeNextPath,
+  sanitizeUserInput,
+  verificationCodeSchema,
+} from "@/lib/validation";
+
+const VERIFY_EMAIL_FORM_MAX_BYTES = 8 * 1024;
 
 const verifyEmailCodeSchema = z.object({
-  email: z.string().trim().email(),
-  code: z
-    .string()
-    .trim()
-    .regex(/^\d{6,8}$/, "Enter the verification code from your email."),
+  email: emailAddressSchema,
+  code: verificationCodeSchema,
   mode: z.enum(["login", "signup"]),
-  next: z.string().trim().optional(),
+  next: nextPathSchema,
 });
-
-function normalizeNextPath(value: string | undefined) {
-  if (!value || !value.startsWith("/")) {
-    return "/app";
-  }
-
-  return value;
-}
 
 export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit({
@@ -33,21 +32,45 @@ export async function POST(request: NextRequest) {
     return limited;
   }
 
-  const formData = await request.formData();
+  const parsedFormData = await parseFormDataRequest(request, {
+    maxBytes: VERIFY_EMAIL_FORM_MAX_BYTES,
+  });
+
+  if (!parsedFormData.success) {
+    const retryUrl = request.nextUrl.clone();
+    retryUrl.pathname = "/auth/check-email";
+    retryUrl.search = "";
+    retryUrl.searchParams.set("email", "");
+    retryUrl.searchParams.set("mode", "login");
+    retryUrl.searchParams.set("next", "/app");
+    retryUrl.searchParams.set("messageType", "error");
+    retryUrl.searchParams.set("message", "Malformed or oversized form submission.");
+    return NextResponse.redirect(retryUrl, { status: 303 });
+  }
+
+  const formData = parsedFormData.data;
+  const emailField = formData.get("email");
+  const nextField = formData.get("next");
   const parsed = verifyEmailCodeSchema.safeParse({
-    email: formData.get("email"),
+    email: emailField,
     code: formData.get("code"),
     mode: formData.get("mode"),
-    next: formData.get("next"),
+    next: nextField,
   });
 
   if (!parsed.success) {
     const retryUrl = request.nextUrl.clone();
     retryUrl.pathname = "/auth/check-email";
     retryUrl.search = "";
-    retryUrl.searchParams.set("email", String(formData.get("email") ?? ""));
+    retryUrl.searchParams.set(
+      "email",
+      typeof emailField === "string" ? sanitizeUserInput(emailField).slice(0, 320) : "",
+    );
     retryUrl.searchParams.set("mode", String(formData.get("mode") ?? "login"));
-    retryUrl.searchParams.set("next", normalizeNextPath(String(formData.get("next") ?? "/app")));
+    retryUrl.searchParams.set(
+      "next",
+      normalizeNextPath(typeof nextField === "string" ? nextField : null),
+    );
     retryUrl.searchParams.set("messageType", "error");
     retryUrl.searchParams.set(
       "message",
@@ -56,7 +79,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(retryUrl, { status: 303 });
   }
 
-  const next = normalizeNextPath(parsed.data.next);
+  const next = parsed.data.next;
   const { supabase, applyCookies } = await createSupabaseRouteHandlerClient();
   const { error } = await supabase.auth.verifyOtp({
     email: parsed.data.email,
@@ -72,7 +95,7 @@ export async function POST(request: NextRequest) {
     retryUrl.searchParams.set("mode", parsed.data.mode);
     retryUrl.searchParams.set("next", next);
     retryUrl.searchParams.set("messageType", "error");
-    retryUrl.searchParams.set("message", error.message);
+    retryUrl.searchParams.set("message", sanitizeUserInput(error.message).slice(0, 240));
     return applyCookies(NextResponse.redirect(retryUrl, { status: 303 }));
   }
 

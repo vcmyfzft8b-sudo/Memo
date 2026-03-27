@@ -3,14 +3,17 @@ import { z } from "zod";
 
 import { buildLectureChunkStoragePath } from "@/lib/storage";
 import { ensureUserOwnsLecture } from "@/lib/lectures";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { isSupportedAudioMimeType } from "@/lib/storage";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { routeIdParamSchema } from "@/lib/validation";
+import { createSanitizedStringSchema, routeIdParamSchema } from "@/lib/validation";
+
+const PREPARE_CHUNKS_MAX_BYTES = 64 * 1024;
 
 const chunkSchema = z.object({
   index: z.number().int().min(0).max(100),
-  mimeType: z.string().min(1),
+  mimeType: createSanitizedStringSchema({ minLength: 1, maxLength: 120 }),
   startMs: z.number().int().min(0),
   endMs: z.number().int().positive(),
 });
@@ -59,14 +62,12 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = prepareChunkUploadsSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, prepareChunkUploadsSchema, {
+    maxBytes: PREPARE_CHUNKS_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return parsed.response;
   }
 
   if (

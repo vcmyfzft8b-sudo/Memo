@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
+import { normalizeNextPath, sanitizeUserInput } from "@/lib/validation";
 
 const validEmailOtpTypes: EmailOtpType[] = [
   "email",
@@ -12,14 +13,6 @@ const validEmailOtpTypes: EmailOtpType[] = [
   "invite",
   "email_change",
 ];
-
-function normalizeNextPath(value: string | null) {
-  if (!value || !value.startsWith("/")) {
-    return "/app";
-  }
-
-  return value;
-}
 
 function normalizeEmailOtpType(value: string | null): EmailOtpType | null {
   if (!value) {
@@ -55,15 +48,14 @@ export async function GET(request: NextRequest) {
     const fallbackUrl = request.nextUrl.clone();
     fallbackUrl.pathname = "/auth/error";
     fallbackUrl.search = "";
-    fallbackUrl.searchParams.set(
-      "message",
+    fallbackUrl.searchParams.set("message", sanitizeUserInput(
       authErrorDescription ??
         (authErrorCode === "otp_expired"
           ? "This sign-in link has expired. Request a new email and try again."
           : authError
             ? "Authentication was canceled or denied."
             : "Missing authentication code."),
-    );
+    ).slice(0, 240));
     return NextResponse.redirect(fallbackUrl, { status: 303 });
   }
 
@@ -83,7 +75,7 @@ export async function GET(request: NextRequest) {
     const errorUrl = request.nextUrl.clone();
     errorUrl.pathname = "/auth/error";
     errorUrl.search = "";
-    errorUrl.searchParams.set("message", error.message);
+    errorUrl.searchParams.set("message", sanitizeUserInput(error.message).slice(0, 240));
     return applyCookies(NextResponse.redirect(errorUrl, { status: 303 }));
   }
 

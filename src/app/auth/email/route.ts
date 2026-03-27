@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseFormDataRequest } from "@/lib/request-validation";
 import {
   createSupabaseRouteHandlerClient,
   createSupabaseServiceRoleClient,
 } from "@/lib/supabase/server";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
+import {
+  emailAddressSchema,
+  nextPathSchema,
+  normalizeNextPath,
+  sanitizeUserInput,
+} from "@/lib/validation";
 
 const EMAIL_AUTH_MINUTE_LIMIT_SECONDS = 60;
 const EMAIL_AUTH_HOURLY_LIMIT = 10;
 const EMAIL_AUTH_HOURLY_LIMIT_SECONDS = 60 * 60;
+const EMAIL_AUTH_FORM_MAX_BYTES = 8 * 1024;
 
 const emailAuthSchema = z.object({
-  email: z.string().trim().email(),
+  email: emailAddressSchema,
   mode: z.enum(["login", "signup"]),
-  next: z.string().trim().optional(),
+  next: nextPathSchema,
 });
-
-function normalizeNextPath(value: string | undefined) {
-  if (!value || !value.startsWith("/")) {
-    return "/app";
-  }
-
-  return value;
-}
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
@@ -54,7 +54,7 @@ function redirectToCheckEmail(
   );
 
   if (options.message) {
-    successUrl.searchParams.set("message", options.message);
+    successUrl.searchParams.set("message", sanitizeUserInput(options.message).slice(0, 240));
   }
 
   if (options.messageType) {
@@ -75,18 +75,35 @@ export async function POST(request: NextRequest) {
     return limited;
   }
 
-  const formData = await request.formData();
+  const parsedFormData = await parseFormDataRequest(request, {
+    maxBytes: EMAIL_AUTH_FORM_MAX_BYTES,
+  });
+
+  if (!parsedFormData.success) {
+    const retryUrl = redirectToCheckEmail(request, {
+      email: "",
+      mode: "login",
+      next: "/app",
+      message: "Malformed or oversized form submission.",
+      messageType: "error",
+      sentAt: 0,
+    });
+    return NextResponse.redirect(retryUrl, { status: 303 });
+  }
+
+  const formData = parsedFormData.data;
+  const nextField = formData.get("next");
   const parsed = emailAuthSchema.safeParse({
     email: formData.get("email"),
     mode: formData.get("mode"),
-    next: formData.get("next"),
+    next: nextField,
   });
 
   if (!parsed.success) {
     const retryUrl = redirectToCheckEmail(request, {
       email: String(formData.get("email") ?? ""),
       mode: formData.get("mode") === "signup" ? "signup" : "login",
-      next: normalizeNextPath(String(formData.get("next") ?? "/app")),
+      next: normalizeNextPath(typeof nextField === "string" ? nextField : null),
       message: "Enter a valid email address.",
       messageType: "error",
       sentAt: 0,
@@ -94,7 +111,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(retryUrl, { status: 303 });
   }
 
-  const next = normalizeNextPath(parsed.data.next);
+  const next = parsed.data.next;
   const normalizedEmail = normalizeEmail(parsed.data.email);
   const serviceRole = createSupabaseServiceRoleClient();
 

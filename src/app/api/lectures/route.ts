@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { parseAudioChunkManifest } from "@/lib/audio-processing";
 import { MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS } from "@/lib/constants";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import {
   buildLectureStoragePath,
@@ -10,10 +11,13 @@ import {
   normalizeUploadAudioMimeType,
 } from "@/lib/storage";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { languageHintSchema, optionalUploadFileNameSchema } from "@/lib/validation";
+import { createSanitizedStringSchema, languageHintSchema, optionalUploadFileNameSchema } from "@/lib/validation";
+
+const CREATE_LECTURE_MAX_BYTES = 8 * 1024;
+const DELETE_LECTURES_MAX_BYTES = 16 * 1024;
 
 const createLectureSchema = z.object({
-  mimeType: z.string().min(1),
+  mimeType: createSanitizedStringSchema({ minLength: 1, maxLength: 120 }),
   fileName: optionalUploadFileNameSchema,
   size: z.number().int().positive().max(MAX_AUDIO_BYTES),
   durationSeconds: z.number().positive().max(MAX_AUDIO_SECONDS),
@@ -45,14 +49,12 @@ export async function POST(request: Request) {
     return limited;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = createLectureSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, createLectureSchema, {
+    maxBytes: CREATE_LECTURE_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return parsed.response;
   }
 
   const mimeType = normalizeUploadAudioMimeType({
@@ -136,14 +138,12 @@ export async function DELETE(request: Request) {
     return limited;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = deleteLecturesSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, deleteLecturesSchema, {
+    maxBytes: DELETE_LECTURES_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return parsed.response;
   }
 
   const { data: ownedLectures, error: ownedLecturesError } = await supabase

@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import type { FlashcardProgressRow } from "@/lib/database.types";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { routeIdParamSchema } from "@/lib/validation";
+
+const FLASHCARD_PROGRESS_MAX_BYTES = 4 * 1024;
 
 const progressSchema = z.object({
   confidenceBucket: z.enum(["again", "good", "easy"]),
@@ -34,14 +37,12 @@ export async function POST(
     return limited;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = progressSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, progressSchema, {
+    maxBytes: FLASHCARD_PROGRESS_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return parsed.response;
   }
 
   const parsedParams = routeIdParamSchema.safeParse(await context.params);

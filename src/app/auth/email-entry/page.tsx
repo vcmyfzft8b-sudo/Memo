@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { getOptionalUser } from "@/lib/auth";
 import { BRAND_NAME } from "@/lib/brand";
+import { normalizeNextPath, sanitizeUserInput } from "@/lib/validation";
 
 type SearchParams = Promise<{
   email?: string;
@@ -19,9 +20,9 @@ export default async function EmailEntryPage({
 }) {
   const user = await getOptionalUser();
   const params = await searchParams;
-  const next = params?.next?.startsWith("/") ? params.next : "/app";
+  const next = normalizeNextPath(params?.next);
   const mode = params?.mode === "login" ? "login" : "signup";
-  const email = params?.email ?? "";
+  const email = typeof params?.email === "string" ? sanitizeUserInput(params.email).slice(0, 320) : "";
 
   if (user) {
     redirect(next);

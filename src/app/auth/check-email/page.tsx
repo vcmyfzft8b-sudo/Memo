@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { CheckEmailCard } from "@/components/check-email-card";
 import { BRAND_NAME } from "@/lib/brand";
+import { normalizeNextPath, sanitizeUserInput } from "@/lib/validation";
 
 type SearchParams = Promise<{
   email?: string;
@@ -21,10 +22,15 @@ export default async function CheckEmailPage({
   searchParams?: SearchParams;
 }) {
   const params = await searchParams;
-  const email = params?.email ?? "your inbox";
+  const normalizedEmail = typeof params?.email === "string"
+    ? sanitizeUserInput(params.email).slice(0, 320)
+    : "";
+  const email = normalizedEmail || "your inbox";
   const mode = params?.mode === "signup" ? "signup" : "login";
-  const next = params?.next ?? "/app";
-  const message = params?.message;
+  const next = normalizeNextPath(params?.next);
+  const message = typeof params?.message === "string"
+    ? sanitizeUserInput(params.message).slice(0, 240)
+    : undefined;
   const messageType = params?.messageType === "error" ? "error" : "info";
   const sentAt = Number(params?.sentAt);
   const cooldownSeconds = Number(params?.cooldownSeconds);
@@ -52,7 +58,7 @@ export default async function CheckEmailPage({
         </div>
 
         <CheckEmailCard
-          email={params?.email ?? ""}
+          email={normalizedEmail}
           mode={mode}
           next={next}
           message={message}

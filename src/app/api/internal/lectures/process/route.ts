@@ -10,6 +10,7 @@ import {
   markLecturePipelineFailed,
   transcribeLectureContent,
 } from "@/lib/pipeline";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { getServerEnv } from "@/lib/server-env";
 
@@ -19,6 +20,7 @@ const requestSchema = z.object({
 });
 
 export const maxDuration = 300;
+const INTERNAL_JOB_MAX_BYTES = 8 * 1024;
 
 function getSecretFromRequest(request: Request) {
   const headerSecret = request.headers.get("x-internal-job-secret");
@@ -76,15 +78,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = requestSchema.safeParse(await request.json().catch(() => null));
+  const parsed = await parseJsonRequest(request, requestSchema, {
+    maxBytes: INTERNAL_JOB_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: parsed.error.flatten(),
-      },
-      { status: 400 },
-    );
+    return parsed.response;
   }
 
   after(async () => {

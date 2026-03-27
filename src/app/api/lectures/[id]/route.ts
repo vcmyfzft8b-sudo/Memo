@@ -3,12 +3,15 @@ import { z } from "zod";
 
 import { parseAudioChunkManifest } from "@/lib/audio-processing";
 import { ensureUserOwnsLecture, getLectureDetailForUser } from "@/lib/lectures";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { routeIdParamSchema } from "@/lib/validation";
+import { lectureTitleSchema, routeIdParamSchema } from "@/lib/validation";
+
+const UPDATE_LECTURE_MAX_BYTES = 8 * 1024;
 
 const updateLectureSchema = z.object({
-  title: z.string().trim().min(1).max(180),
+  title: lectureTitleSchema,
 });
 
 export async function GET(
@@ -145,14 +148,12 @@ export async function PATCH(
     return limited;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = updateLectureSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, updateLectureSchema, {
+    maxBytes: UPDATE_LECTURE_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return parsed.response;
   }
 
   const parsedParams = routeIdParamSchema.safeParse(await context.params);

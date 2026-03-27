@@ -5,19 +5,21 @@ import { STORAGE_BUCKET } from "@/lib/constants";
 import { validateStoredAudioFile } from "@/lib/file-validation";
 import { enqueueLectureProcessing } from "@/lib/jobs";
 import { ensureUserOwnsLecture } from "@/lib/lectures";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { isCanonicalLectureStoragePath } from "@/lib/storage";
 import {
   createSupabaseServerClient,
   createSupabaseServiceRoleClient,
 } from "@/lib/supabase/server";
-import { routeIdParamSchema } from "@/lib/validation";
+import { routeIdParamSchema, storagePathSchema } from "@/lib/validation";
 
 const finalizeSchema = z.object({
-  path: z.string().min(3),
+  path: storagePathSchema,
 });
 
 export const maxDuration = 300;
+const FINALIZE_LECTURE_MAX_BYTES = 8 * 1024;
 
 export async function POST(
   request: Request,
@@ -59,14 +61,12 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = finalizeSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, finalizeSchema, {
+    maxBytes: FINALIZE_LECTURE_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return parsed.response;
   }
 
   if (

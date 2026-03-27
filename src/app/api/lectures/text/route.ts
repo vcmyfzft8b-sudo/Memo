@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createLectureFromTextSource } from "@/lib/manual-lectures";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { languageHintSchema, optionalLectureIdSchema } from "@/lib/validation";
+import { languageHintSchema, noteTextSchema, optionalLectureIdSchema } from "@/lib/validation";
+
+const CREATE_TEXT_LECTURE_MAX_BYTES = 256 * 1024;
 
 const createTextLectureSchema = z.object({
   lectureId: optionalLectureIdSchema,
-  text: z.string().trim().min(120).max(120000),
+  text: noteTextSchema,
   languageHint: languageHintSchema.default("sl"),
 });
 
@@ -35,11 +38,12 @@ export async function POST(request: Request) {
     return limited;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = createTextLectureSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, createTextLectureSchema, {
+    maxBytes: CREATE_TEXT_LECTURE_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return parsed.response;
   }
 
   try {

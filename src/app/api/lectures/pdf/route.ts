@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { MAX_DOCUMENT_BYTES } from "@/lib/constants";
 import { isPdfDocument, isSupportedDocumentFile } from "@/lib/document-files";
 import { validateDocumentFileSignature } from "@/lib/file-validation";
 import {
   createLectureFromTextSource,
   extractTextFromDocument,
 } from "@/lib/manual-lectures";
+import { parseFormDataRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -16,6 +18,7 @@ import {
 } from "@/lib/validation";
 
 export const maxDuration = 300;
+const PDF_UPLOAD_MAX_BYTES = MAX_DOCUMENT_BYTES + 256 * 1024;
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -38,7 +41,15 @@ export async function POST(request: Request) {
     return limited;
   }
 
-  const formData = await request.formData();
+  const parsedFormData = await parseFormDataRequest(request, {
+    maxBytes: PDF_UPLOAD_MAX_BYTES,
+  });
+
+  if (!parsedFormData.success) {
+    return parsedFormData.response;
+  }
+
+  const formData = parsedFormData.data;
   const parsedFields = z
     .object({
       lectureId: optionalDocumentLectureIdSchema,

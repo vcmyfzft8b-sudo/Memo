@@ -3,6 +3,7 @@ import { AlertCircle, ChevronLeft } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand-logo";
 import { BRAND_NAME } from "@/lib/brand";
+import { sanitizeUserInput } from "@/lib/validation";
 
 export default async function AuthErrorPage({
   searchParams,
@@ -10,6 +11,9 @@ export default async function AuthErrorPage({
   searchParams: Promise<{ message?: string }>;
 }) {
   const params = await searchParams;
+  const message = typeof params.message === "string"
+    ? sanitizeUserInput(params.message).slice(0, 240)
+    : undefined;
 
   return (
     <main className="landing-shell auth-shell">
@@ -37,7 +41,7 @@ export default async function AuthErrorPage({
             <p className="auth-eyebrow">Authentication error</p>
             <h1 className="auth-title">We couldn&apos;t sign you in</h1>
             <p className="auth-copy">
-              {params.message ??
+              {message ??
                 "Try another sign-in method or check that your auth providers are configured correctly."}
             </p>
 

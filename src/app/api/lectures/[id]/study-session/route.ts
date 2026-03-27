@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ensureUserOwnsLecture } from "@/lib/lectures";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { routeIdParamSchema } from "@/lib/validation";
+
+const STUDY_SESSION_MAX_BYTES = 128 * 1024;
 
 const flashcardConfidenceSchema = z.enum(["again", "good", "easy"]);
 
@@ -79,11 +82,12 @@ async function updateStudySession(
     return limited;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = updateStudySessionSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, updateStudySessionSchema, {
+    maxBytes: STUDY_SESSION_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return parsed.response;
   }
 
   const parsedParams = routeIdParamSchema.safeParse(await context.params);

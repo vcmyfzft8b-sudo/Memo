@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { languageHintSchema } from "@/lib/validation";
+
+const CREATE_MANUAL_LECTURE_MAX_BYTES = 8 * 1024;
 
 const createManualLectureSchema = z.object({
   sourceType: z.enum(["text", "pdf", "link"]),
@@ -31,11 +34,12 @@ export async function POST(request: Request) {
     return limited;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = createManualLectureSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, createManualLectureSchema, {
+    maxBytes: CREATE_MANUAL_LECTURE_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return parsed.response;
   }
 
   const { data: lecture, error } = await supabase

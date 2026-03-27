@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getPublicEnv } from "@/lib/public-env";
+import { parseFormDataRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
+import { normalizeNextPath, sanitizeUserInput } from "@/lib/validation";
+
+const OAUTH_FORM_MAX_BYTES = 8 * 1024;
 
 function resolveNextPath(request: NextRequest, value?: FormDataEntryValue | null) {
-  if (typeof value === "string" && value.startsWith("/")) {
-    return value;
-  }
-
-  const searchNext = request.nextUrl.searchParams.get("next");
-  if (searchNext?.startsWith("/")) {
-    return searchNext;
-  }
-
-  return "/app";
+  return normalizeNextPath(
+    typeof value === "string" ? value : request.nextUrl.searchParams.get("next"),
+  );
 }
 
 async function startGoogleAuth(request: NextRequest, next: string) {
@@ -39,10 +36,9 @@ async function startGoogleAuth(request: NextRequest, next: string) {
     const errorUrl = request.nextUrl.clone();
     errorUrl.pathname = "/auth/error";
     errorUrl.search = "";
-    errorUrl.searchParams.set(
-      "message",
+    errorUrl.searchParams.set("message", sanitizeUserInput(
       error?.message ?? "Google sign-in is currently unavailable.",
-    );
+    ).slice(0, 240));
 
     return applyCookies(NextResponse.redirect(errorUrl, { status: 303 }));
   }
@@ -75,7 +71,18 @@ export async function POST(request: NextRequest) {
     return limited;
   }
 
-  const formData = await request.formData();
-  const next = resolveNextPath(request, formData.get("next"));
+  const parsedFormData = await parseFormDataRequest(request, {
+    maxBytes: OAUTH_FORM_MAX_BYTES,
+  });
+
+  if (!parsedFormData.success) {
+    const errorUrl = request.nextUrl.clone();
+    errorUrl.pathname = "/auth/error";
+    errorUrl.search = "";
+    errorUrl.searchParams.set("message", "Malformed or oversized form submission.");
+    return NextResponse.redirect(errorUrl, { status: 303 });
+  }
+
+  const next = resolveNextPath(request, parsedFormData.data.get("next"));
   return startGoogleAuth(request, next);
 }

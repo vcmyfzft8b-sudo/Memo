@@ -3,15 +3,17 @@ import { z } from "zod";
 
 import { answerLectureChat } from "@/lib/pipeline";
 import { ensureUserOwnsLecture } from "@/lib/lectures";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { routeIdParamSchema } from "@/lib/validation";
+import { chatQuestionSchema, routeIdParamSchema } from "@/lib/validation";
 
 const chatSchema = z.object({
-  question: z.string().trim().min(3).max(1000),
+  question: chatQuestionSchema,
 });
 
 export const maxDuration = 300;
+const CHAT_REQUEST_MAX_BYTES = 8 * 1024;
 
 export async function POST(
   request: Request,
@@ -37,14 +39,12 @@ export async function POST(
     return limited;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = chatSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, chatSchema, {
+    maxBytes: CHAT_REQUEST_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return parsed.response;
   }
 
   const parsedParams = routeIdParamSchema.safeParse(await context.params);

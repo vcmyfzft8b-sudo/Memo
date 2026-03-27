@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createLectureFromTextSource, fetchReadableWebpage } from "@/lib/manual-lectures";
+import { parseJsonRequest } from "@/lib/request-validation";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -9,6 +10,8 @@ import {
   languageHintSchema,
   optionalLectureIdSchema,
 } from "@/lib/validation";
+
+const CREATE_LINK_LECTURE_MAX_BYTES = 16 * 1024;
 
 const createLinkLectureSchema = z.object({
   lectureId: optionalLectureIdSchema,
@@ -39,11 +42,12 @@ export async function POST(request: Request) {
     return limited;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = createLinkLectureSchema.safeParse(body);
+  const parsed = await parseJsonRequest(request, createLinkLectureSchema, {
+    maxBytes: CREATE_LINK_LECTURE_MAX_BYTES,
+  });
 
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return parsed.response;
   }
 
   try {
