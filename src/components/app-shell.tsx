@@ -171,8 +171,10 @@ export function AppShell({
                 className={`ios-tab-item ${active ? "active" : ""}`}
                 aria-current={active ? "page" : undefined}
               >
-                <EmojiIcon symbol={item.icon} size="1.05rem" />
-                <span>{item.displayLabel}</span>
+                <span className="ios-tab-item-icon">
+                  <EmojiIcon symbol={item.icon} size="1.05rem" />
+                </span>
+                <span className="ios-tab-item-label">{item.displayLabel}</span>
               </InstantLink>
             );
           })}
