@@ -356,13 +356,12 @@ export function LibraryFolderMenu({
                 className={`library-folder-option ${selectedFolderId === null ? "active" : ""}`}
                 onClick={handleSelectAllNotes}
               >
-                  <span className="library-folder-option-copy">
-                    <span className="library-folder-option-icon">
-                      <Folder open={false} size={0.34} />
-                    </span>
-                    <span>All Notes</span>
+                <span className="library-folder-option-copy">
+                  <span className="library-folder-option-icon">
+                    <Folder open={false} size={0.34} />
                   </span>
-                {selectedFolderId === null ? <EmojiIcon symbol="✅" size="0.95rem" /> : null}
+                  <span>All Notes</span>
+                </span>
               </button>
 
               {folders.map((folder) => (
