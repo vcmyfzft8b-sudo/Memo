@@ -29,7 +29,7 @@ export async function POST(
   const limited = await enforceRateLimit({
     request,
     route: "api:lectures:chat:post",
-    rules: rateLimitPresets.chat,
+    rules: rateLimitPresets.expensiveChat,
     userId: user.id,
   });
 

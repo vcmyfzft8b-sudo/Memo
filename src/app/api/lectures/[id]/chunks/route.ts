@@ -34,7 +34,7 @@ export async function POST(
   const limited = await enforceRateLimit({
     request,
     route: "api:lectures:chunks:post",
-    rules: rateLimitPresets.upload,
+    rules: rateLimitPresets.chunkUpload,
     userId: user.id,
   });
 

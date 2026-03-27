@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit({
     request,
     route: "api:lectures:create:post",
-    rules: rateLimitPresets.create,
+    rules: rateLimitPresets.uploadCreate,
     userId: user.id,
   });
 

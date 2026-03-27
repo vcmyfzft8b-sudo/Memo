@@ -30,13 +30,43 @@ export const rateLimitPresets = {
   listRead: [{ windowSeconds: 60, maxRequests: 180, scope: "user_or_ip" }] satisfies RateLimitRule[],
   detailRead: [{ windowSeconds: 60, maxRequests: 180, scope: "user_or_ip" }] satisfies RateLimitRule[],
   create: [{ windowSeconds: 600, maxRequests: 24, scope: "user" }] satisfies RateLimitRule[],
+  expensiveCreate: [
+    { windowSeconds: 600, maxRequests: 8, scope: "user" },
+    { windowSeconds: 3600, maxRequests: 24, scope: "user" },
+  ] satisfies RateLimitRule[],
+  uploadCreate: [
+    { windowSeconds: 600, maxRequests: 10, scope: "user" },
+    { windowSeconds: 3600, maxRequests: 30, scope: "user" },
+  ] satisfies RateLimitRule[],
   mutate: [{ windowSeconds: 300, maxRequests: 60, scope: "user" }] satisfies RateLimitRule[],
+  expensiveMutate: [
+    { windowSeconds: 300, maxRequests: 12, scope: "user" },
+    { windowSeconds: 3600, maxRequests: 48, scope: "user" },
+  ] satisfies RateLimitRule[],
   upload: [{ windowSeconds: 300, maxRequests: 40, scope: "user" }] satisfies RateLimitRule[],
+  uploadFinalize: [
+    { windowSeconds: 300, maxRequests: 12, scope: "user" },
+    { windowSeconds: 3600, maxRequests: 36, scope: "user" },
+  ] satisfies RateLimitRule[],
+  chunkUpload: [
+    { windowSeconds: 300, maxRequests: 20, scope: "user" },
+    { windowSeconds: 3600, maxRequests: 80, scope: "user" },
+  ] satisfies RateLimitRule[],
   chat: [{ windowSeconds: 300, maxRequests: 30, scope: "user" }] satisfies RateLimitRule[],
+  expensiveChat: [
+    { windowSeconds: 300, maxRequests: 12, scope: "user" },
+    { windowSeconds: 3600, maxRequests: 60, scope: "user" },
+  ] satisfies RateLimitRule[],
   studySession: [{ windowSeconds: 300, maxRequests: 240, scope: "user" }] satisfies RateLimitRule[],
   progress: [{ windowSeconds: 300, maxRequests: 240, scope: "user" }] satisfies RateLimitRule[],
-  internal: [{ windowSeconds: 60, maxRequests: 240, scope: "ip" }] satisfies RateLimitRule[],
-  inngest: [{ windowSeconds: 60, maxRequests: 240, scope: "ip" }] satisfies RateLimitRule[],
+  internal: [
+    { windowSeconds: 60, maxRequests: 90, scope: "ip" },
+    { windowSeconds: 3600, maxRequests: 1500, scope: "ip" },
+  ] satisfies RateLimitRule[],
+  inngest: [
+    { windowSeconds: 60, maxRequests: 120, scope: "ip" },
+    { windowSeconds: 3600, maxRequests: 2000, scope: "ip" },
+  ] satisfies RateLimitRule[],
 } as const;
 
 function getClientIp(request: Request) {

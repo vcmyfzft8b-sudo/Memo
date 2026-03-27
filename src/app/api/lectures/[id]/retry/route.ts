@@ -24,7 +24,7 @@ export async function POST(
   const limited = await enforceRateLimit({
     request,
     route: "api:lectures:retry:post",
-    rules: rateLimitPresets.mutate,
+    rules: rateLimitPresets.expensiveMutate,
     userId: user.id,
   });
 
