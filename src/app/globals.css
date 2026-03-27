@@ -6222,7 +6222,7 @@ select:disabled {
     width: 3.15rem;
     height: 3.15rem;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--surface-solid) 92%, var(--canvas));
+    background: transparent;
   }
 
   .desktop-sidebar-link.active {
@@ -6232,7 +6232,7 @@ select:disabled {
   }
 
   .desktop-sidebar-link.active .desktop-sidebar-link-icon {
-    background: #898989;
+    background: color-mix(in srgb, var(--surface-solid) 96%, var(--canvas));
     color: var(--label);
   }
 
