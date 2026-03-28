@@ -985,9 +985,6 @@ export function NoteSourceModal({
                               active={isRecording}
                               className="mx-auto max-w-[14rem]"
                             />
-                            <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--secondary-label)]">
-                              Live sound
-                            </p>
                           </div>
                         </div>
                       ) : null}

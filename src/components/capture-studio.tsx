@@ -480,9 +480,6 @@ export function CaptureStudio({
                     active={isRecording}
                     className="mx-auto max-w-[15rem]"
                   />
-                  <p className="mt-3 text-center text-xs font-medium tracking-[0.18em] text-current/80 uppercase">
-                    {isRecording ? "Live sound" : "Waveform preview"}
-                  </p>
                 </div>
               </button>
             ) : (
