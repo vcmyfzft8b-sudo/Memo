@@ -1400,6 +1400,11 @@ select:disabled {
   text-align: center;
 }
 
+.note-source-recording-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .note-source-guide-entry {
   display: flex;
   align-items: center;

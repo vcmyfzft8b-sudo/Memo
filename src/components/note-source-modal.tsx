@@ -155,6 +155,7 @@ export function NoteSourceModal({
   const [error, setError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isTextEditorOpen, setIsTextEditorOpen] = useState(false);
   const [textEditorKeyboardOffset, setTextEditorKeyboardOffset] = useState(0);
   const [scannedFileName, setScannedFileName] = useState<string | null>(null);
@@ -267,6 +268,7 @@ export function NoteSourceModal({
     setLinkValue("");
     setLanguageHint("sl");
     setIsRecording(false);
+    setIsPaused(false);
     setElapsedSeconds(0);
     setError(null);
     setBusyLabel(null);
@@ -458,10 +460,12 @@ export function NoteSourceModal({
           streamRef.current = null;
         }
         setVisualizerStream(null);
+        setIsPaused(false);
       };
 
       recorder.start();
       setIsRecording(true);
+      setIsPaused(false);
       setElapsedSeconds(0);
       elapsedRef.current = 0;
       setError(null);
@@ -485,10 +489,44 @@ export function NoteSourceModal({
     recorderRef.current?.stop();
     recorderRef.current = null;
     setIsRecording(false);
+    setIsPaused(false);
     setVisualizerStream(null);
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+  }, []);
+
+  const pauseRecording = useCallback(() => {
+    if (!recorderRef.current || recorderRef.current.state !== "recording") {
+      return;
+    }
+
+    recorderRef.current.pause();
+    setIsPaused(true);
+
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const resumeRecording = useCallback(() => {
+    if (!recorderRef.current || recorderRef.current.state !== "paused") {
+      return;
+    }
+
+    recorderRef.current.resume();
+    setIsPaused(false);
+
+    if (!timerRef.current) {
+      timerRef.current = window.setInterval(() => {
+        setElapsedSeconds((value) => {
+          const nextValue = value + 1;
+          elapsedRef.current = nextValue;
+          return nextValue;
+        });
+      }, 1000);
     }
   }, []);
 
@@ -1021,20 +1059,22 @@ export function NoteSourceModal({
               </div>
             ) : (
               <>
-                <div className="mt-6 ios-segmented note-source-segmented">
-                  {MODES.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setSelectedMode(item.id)}
-                      className={`ios-segment ${selectedMode === item.id ? "active" : ""}`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
+                {!isRecording ? (
+                  <div className="mt-6 ios-segmented note-source-segmented">
+                    {MODES.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSelectedMode(item.id)}
+                        className={`ios-segment ${selectedMode === item.id ? "active" : ""}`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="mt-6 space-y-4 note-source-modal-body">
-                  {selectedMode === "record" ? (
+                  {selectedMode === "record" && !isRecording ? (
                     <button
                       type="button"
                       className="ios-card note-source-guide-entry"
@@ -1054,25 +1094,27 @@ export function NoteSourceModal({
                     </button>
                   ) : null}
 
-                  <div>
-                    <label className="note-source-field-label">
-                      Language
-                    </label>
-                    <div className="relative note-source-select-wrap">
-                      <select
-                        value={languageHint}
-                        onChange={(event) => setLanguageHint(event.target.value)}
-                        className="ios-select appearance-none pr-10"
-                      >
-                        {NOTE_LANGUAGE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--secondary-label)]" />
+                  {!isRecording ? (
+                    <div>
+                      <label className="note-source-field-label">
+                        Language
+                      </label>
+                      <div className="relative note-source-select-wrap">
+                        <select
+                          value={languageHint}
+                          onChange={(event) => setLanguageHint(event.target.value)}
+                          className="ios-select appearance-none pr-10"
+                        >
+                          {NOTE_LANGUAGE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--secondary-label)]" />
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
 
                   {selectedMode === "record" ? (
                     <>
@@ -1089,14 +1131,16 @@ export function NoteSourceModal({
                       {isRecording ? (
                         <div className="ios-card">
                           <p className="note-source-card-label">Recording</p>
-                          <p className="ios-row-title mt-3">Recording in progress</p>
+                          <p className="ios-row-title mt-3">
+                            {isPaused ? "Recording paused" : "Recording in progress"}
+                          </p>
                           <p className="ios-row-subtitle">
                             {formatTimestamp(elapsedSeconds * 1000)}
                           </p>
                           <div className="mt-4 px-4 py-4 text-[var(--label)]">
                             <LiveAudioWave
                               stream={visualizerStream}
-                              active={isRecording}
+                              active={isRecording && !isPaused}
                               className="mx-auto max-w-[14rem]"
                             />
                           </div>
@@ -1104,25 +1148,48 @@ export function NoteSourceModal({
                       ) : null}
 
                       {isRecording ? (
-                        <button
-                          type="button"
-                          disabled={Boolean(busyLabel)}
-                          className="ios-primary-button"
-                          onClick={() => {
-                            if (busyLabel) {
-                              return;
-                            }
+                        <div className="note-source-recording-actions">
+                          <button
+                            type="button"
+                            disabled={Boolean(busyLabel)}
+                            className="ios-secondary-button"
+                            onClick={() => {
+                              if (busyLabel) {
+                                return;
+                              }
 
-                            void stopRecording();
-                          }}
-                        >
-                          {busyLabel ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <EmojiIcon symbol="🎙️" size="1rem" />
-                          )}
-                          {busyLabel ?? "Stop recording"}
-                        </button>
+                              if (isPaused) {
+                                resumeRecording();
+                                return;
+                              }
+
+                              pauseRecording();
+                            }}
+                          >
+                            <EmojiIcon symbol={isPaused ? "▶️" : "⏸️"} size="1rem" />
+                            {isPaused ? "Resume recording" : "Pause recording"}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={Boolean(busyLabel)}
+                            className="ios-primary-button"
+                            onClick={() => {
+                              if (busyLabel) {
+                                return;
+                              }
+
+                              void stopRecording();
+                            }}
+                          >
+                            {busyLabel ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <EmojiIcon symbol="🎙️" size="1rem" />
+                            )}
+                            {busyLabel ?? "Stop recording"}
+                          </button>
+                        </div>
                       ) : null}
 
                       {!isRecording && preparedRecording ? (
