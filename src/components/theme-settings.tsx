@@ -66,11 +66,6 @@ export function ThemeSettings() {
             <span className="note-action-card-copy">
               <span className="note-action-card-label">{option.label}</span>
             </span>
-            <EmojiIcon
-              symbol="✅"
-              size="0.95rem"
-              className={`theme-choice-check ${active ? "" : "opacity-0"}`}
-            />
           </button>
         );
       })}

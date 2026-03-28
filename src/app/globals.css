@@ -1744,12 +1744,6 @@ select:disabled {
     linear-gradient(180deg, color-mix(in srgb, var(--surface-solid) 98%, transparent), color-mix(in srgb, var(--surface-muted) 86%, transparent));
 }
 
-.theme-choice-check {
-  flex-shrink: 0;
-  color: var(--tint);
-  transition: opacity 0.22s ease;
-}
-
 .help-article-card {
   padding: clamp(1.2rem, 3vw, 1.8rem);
 }
