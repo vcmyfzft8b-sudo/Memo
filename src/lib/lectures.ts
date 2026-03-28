@@ -8,10 +8,14 @@ import type {
   FlashcardRow,
   FlashcardProgressRow,
   LectureQuizAssetRow,
+  LecturePracticeTestAssetRow,
   LectureArtifactRow,
   LectureRow,
   LectureStudyAssetRow,
   LectureStudySectionRow,
+  PracticeTestAttemptAnswerRow,
+  PracticeTestAttemptRow,
+  PracticeTestQuestionRow,
   QuizQuestionRow,
   TranscriptSegmentRow,
 } from "@/lib/database.types";
@@ -22,11 +26,16 @@ import type {
   LectureDetail,
   PersistedFlashcardSessionResult,
   PersistedFlashcardSessionState,
+  PersistedPracticeTestPhotoDraft,
+  PersistedPracticeTestSessionState,
   PersistedQuizSessionState,
   QuizQuestionWithOptions,
+  PracticeTestAttemptWithAnswers,
+  PracticeTestQuestion,
   StudySectionWithProgress,
   StudySession,
 } from "@/lib/types";
+import { buildPracticeTestHistorySummary, mapAttemptWithAnswers } from "@/lib/practice-test";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { uuidSchema } from "@/lib/validation";
 
@@ -96,6 +105,27 @@ function isMissingStudySessionSchemaError(error: unknown) {
       text.includes("could not find") ||
       text.includes("schema cache") ||
       text.includes("42p01") ||
+      text.includes("pgrst"))
+  );
+}
+
+function isMissingPracticeTestSchemaError(error: unknown) {
+  const text = getSchemaErrorText(error);
+
+  if (!text) {
+    return false;
+  }
+
+  return (
+    (text.includes("lecture_practice_test_assets") ||
+      text.includes("practice_test_questions") ||
+      text.includes("practice_test_attempts") ||
+      text.includes("practice_test_attempt_answers")) &&
+    (text.includes("does not exist") ||
+      text.includes("could not find") ||
+      text.includes("schema cache") ||
+      text.includes("42p01") ||
+      text.includes("42703") ||
       text.includes("pgrst"))
   );
 }
@@ -263,6 +293,55 @@ function parseQuizSessionState(value: unknown): PersistedQuizSessionState | null
   };
 }
 
+function parsePracticePhotoDrafts(value: unknown): Record<string, PersistedPracticeTestPhotoDraft> {
+  const record = parseJsonRecord(value);
+  const output: Record<string, PersistedPracticeTestPhotoDraft> = {};
+
+  for (const [questionId, candidate] of Object.entries(record)) {
+    const entry = parseJsonRecord(candidate);
+
+    if (typeof entry.fileName !== "string") {
+      continue;
+    }
+
+    output[questionId] = {
+      fileName: entry.fileName,
+      previewUrl: typeof entry.previewUrl === "string" ? entry.previewUrl : null,
+      uploadedPath: typeof entry.uploadedPath === "string" ? entry.uploadedPath : null,
+      mimeType: typeof entry.mimeType === "string" ? entry.mimeType : null,
+    };
+  }
+
+  return output;
+}
+
+function parsePracticeTestSessionState(value: unknown): PersistedPracticeTestSessionState | null {
+  const record = parseJsonRecord(value);
+
+  if (Object.keys(record).length === 0) {
+    return null;
+  }
+
+  return {
+    currentAttemptId: typeof record.currentAttemptId === "string" ? record.currentAttemptId : null,
+    attemptQuestionIds: Array.isArray(record.attemptQuestionIds)
+      ? record.attemptQuestionIds.filter((item): item is string => typeof item === "string")
+      : [],
+    textAnswers: Object.fromEntries(
+      Object.entries(parseJsonRecord(record.textAnswers)).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    ),
+    photoDrafts: parsePracticePhotoDrafts(record.photoDrafts),
+    unknownQuestionIds: Array.isArray(record.unknownQuestionIds)
+      ? record.unknownQuestionIds.filter((item): item is string => typeof item === "string")
+      : [],
+    latestViewedAttemptId:
+      typeof record.latestViewedAttemptId === "string" ? record.latestViewedAttemptId : null,
+    submittedAt: typeof record.submittedAt === "string" ? record.submittedAt : null,
+  };
+}
+
 function parseStudySession(value: unknown): StudySession | null {
   const record = parseJsonRecord(value);
 
@@ -271,7 +350,9 @@ function parseStudySession(value: unknown): StudySession | null {
     typeof record.lecture_id !== "string" ||
     typeof record.created_at !== "string" ||
     typeof record.updated_at !== "string" ||
-    (record.active_study_view !== "flashcards" && record.active_study_view !== "quiz")
+    (record.active_study_view !== "flashcards" &&
+      record.active_study_view !== "quiz" &&
+      record.active_study_view !== "practice_test")
   ) {
     return null;
   }
@@ -282,6 +363,7 @@ function parseStudySession(value: unknown): StudySession | null {
     active_study_view: record.active_study_view,
     flashcard_state: parseFlashcardSessionState(record.flashcard_state),
     quiz_state: parseQuizSessionState(record.quiz_state),
+    practice_test_state: parsePracticeTestSessionState(record.practice_test_state),
     created_at: record.created_at,
     updated_at: record.updated_at,
   };
@@ -292,6 +374,10 @@ function mapQuizQuestion(question: QuizQuestionRow): QuizQuestionWithOptions {
     ...question,
     options: parseQuizOptions(question.options_json),
   };
+}
+
+function mapPracticeTestQuestion(question: PracticeTestQuestionRow): PracticeTestQuestion {
+  return question;
 }
 
 function parseFallbackQuizState(params: {
@@ -503,6 +589,22 @@ export async function getLectureDetailForUser(params: {
     .select("*")
     .eq("lecture_id", lectureRow.id)
     .order("idx", { ascending: true });
+  const practiceTestAssetPromise = supabase
+    .from("lecture_practice_test_assets")
+    .select("*")
+    .eq("lecture_id", lectureRow.id)
+    .maybeSingle();
+  const practiceTestQuestionsPromise = supabase
+    .from("practice_test_questions")
+    .select("*")
+    .eq("lecture_id", lectureRow.id)
+    .order("idx", { ascending: true });
+  const practiceTestAttemptsPromise = supabase
+    .from("practice_test_attempts")
+    .select("*")
+    .eq("lecture_id", lectureRow.id)
+    .eq("user_id", params.userId)
+    .order("created_at", { ascending: true });
 
   const [
     { data: artifact, error: artifactError },
@@ -514,6 +616,9 @@ export async function getLectureDetailForUser(params: {
     quizAssetResult,
     studySessionResult,
     quizQuestionsResult,
+    practiceTestAssetResult,
+    practiceTestQuestionsResult,
+    practiceTestAttemptsResult,
   ] = await Promise.all([
     supabase
       .from("lecture_artifacts")
@@ -544,6 +649,9 @@ export async function getLectureDetailForUser(params: {
     quizAssetPromise,
     studySessionPromise,
     quizQuestionsPromise,
+    practiceTestAssetPromise,
+    practiceTestQuestionsPromise,
+    practiceTestAttemptsPromise,
   ]);
 
   if (artifactError) {
@@ -575,6 +683,27 @@ export async function getLectureDetailForUser(params: {
   }
 
   if (
+    practiceTestAssetResult.error &&
+    !isMissingPracticeTestSchemaError(practiceTestAssetResult.error)
+  ) {
+    throw practiceTestAssetResult.error;
+  }
+
+  if (
+    practiceTestQuestionsResult.error &&
+    !isMissingPracticeTestSchemaError(practiceTestQuestionsResult.error)
+  ) {
+    throw practiceTestQuestionsResult.error;
+  }
+
+  if (
+    practiceTestAttemptsResult.error &&
+    !isMissingPracticeTestSchemaError(practiceTestAttemptsResult.error)
+  ) {
+    throw practiceTestAttemptsResult.error;
+  }
+
+  if (
     studySessionResult.error &&
     !isMissingStudySessionSchemaError(studySessionResult.error)
   ) {
@@ -598,6 +727,21 @@ export async function getLectureDetailForUser(params: {
       ? []
       : ((quizQuestionsResult.data ?? []) as QuizQuestionRow[])
   ).map(mapQuizQuestion);
+  const practiceTestAsset =
+    practiceTestAssetResult.error && isMissingPracticeTestSchemaError(practiceTestAssetResult.error)
+      ? null
+      : (practiceTestAssetResult.data as LecturePracticeTestAssetRow | null);
+  const practiceTestQuestions = (
+    practiceTestQuestionsResult.error &&
+    isMissingPracticeTestSchemaError(practiceTestQuestionsResult.error)
+      ? []
+      : ((practiceTestQuestionsResult.data ?? []) as PracticeTestQuestionRow[])
+  ).map(mapPracticeTestQuestion);
+  const practiceTestAttempts =
+    practiceTestAttemptsResult.error &&
+    isMissingPracticeTestSchemaError(practiceTestAttemptsResult.error)
+      ? []
+      : ((practiceTestAttemptsResult.data ?? []) as PracticeTestAttemptRow[]);
 
   if (studySectionsResult.error && !isMissingStudySectionsSchemaError(studySectionsResult.error)) {
     throw studySectionsResult.error;
@@ -630,6 +774,7 @@ export async function getLectureDetailForUser(params: {
   }));
 
   let audioUrl: string | null = null;
+  let mappedPracticeAttempts: PracticeTestAttemptWithAnswers[] = [];
 
   if (lectureRow.storage_path) {
     const { data: signed } = await service.storage
@@ -639,11 +784,44 @@ export async function getLectureDetailForUser(params: {
     audioUrl = signed?.signedUrl ?? null;
   }
 
+  if (practiceTestAttempts.length > 0) {
+    const attemptIds = practiceTestAttempts.map((attempt) => attempt.id);
+    const { data: attemptAnswers, error: attemptAnswersError } = await supabase
+      .from("practice_test_attempt_answers")
+      .select("*, practice_test_questions(*)")
+      .in("attempt_id", attemptIds)
+      .order("idx", { ascending: true });
+
+    if (attemptAnswersError && !isMissingPracticeTestSchemaError(attemptAnswersError)) {
+      throw attemptAnswersError;
+    }
+
+    const answersByAttemptId = new Map<
+      string,
+      Array<PracticeTestAttemptAnswerRow & { practice_test_questions: PracticeTestQuestionRow | null }>
+    >();
+
+    for (const answer of ((attemptAnswers ?? []) as Array<
+      PracticeTestAttemptAnswerRow & { practice_test_questions: PracticeTestQuestionRow | null }
+    >)) {
+      const existing = answersByAttemptId.get(answer.attempt_id) ?? [];
+      existing.push(answer);
+      answersByAttemptId.set(answer.attempt_id, existing);
+    }
+
+    mappedPracticeAttempts = await Promise.all(
+      practiceTestAttempts.map((attempt) =>
+        mapAttemptWithAnswers(attempt, answersByAttemptId.get(attempt.id) ?? []),
+      ),
+    );
+  }
+
   return {
     lecture: lectureRow,
     artifact: artifact as LectureArtifactRow | null,
     studyAsset: studyAsset as LectureStudyAssetRow | null,
     quizAsset,
+    practiceTestAsset,
     studySession:
       studySessionResult.error && isMissingStudySessionSchemaError(studySessionResult.error)
         ? null
@@ -655,6 +833,9 @@ export async function getLectureDetailForUser(params: {
     }),
     flashcards: mappedFlashcards,
     quizQuestions: quizQuestions.length > 0 ? quizQuestions : fallbackQuizState.quizQuestions,
+    practiceTestQuestions,
+    practiceTestAttempts: mappedPracticeAttempts,
+    practiceTestHistorySummary: buildPracticeTestHistorySummary(mappedPracticeAttempts),
     transcript: (transcript ?? []) as TranscriptSegmentRow[],
     chatMessages: (chatMessages ?? []).map(mapChatMessage),
     audioUrl,

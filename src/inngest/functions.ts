@@ -4,6 +4,7 @@ import {
   markLecturePipelineFailed,
   transcribeLectureContent,
 } from "@/lib/pipeline";
+import { generateLecturePracticeTest } from "@/lib/practice-test";
 import { generateLectureQuiz } from "@/lib/quiz";
 import { generateLectureFlashcards } from "@/lib/study";
 
@@ -70,6 +71,29 @@ export const processLectureQuizFunction = inngest.createFunction(
         return {
           ok: false,
           error: error instanceof Error ? error.message : "Unknown quiz generation error.",
+        };
+      }
+
+      return { ok: true };
+    });
+  },
+);
+
+export const processLecturePracticeTestFunction = inngest.createFunction(
+  { id: "process-lecture-practice-test" },
+  { event: "lecture/practice-test.requested" },
+  async ({ event, step }) => {
+    await step.run("process-lecture-practice-test", async () => {
+      try {
+        await generateLecturePracticeTest({
+          lectureId: event.data.lectureId,
+          regenerate: Boolean(event.data.regenerate),
+        });
+      } catch (error) {
+        return {
+          ok: false,
+          error:
+            error instanceof Error ? error.message : "Unknown practice-test generation error.",
         };
       }
 

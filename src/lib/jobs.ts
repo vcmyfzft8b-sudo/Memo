@@ -2,6 +2,7 @@ import "server-only";
 
 import { inngest } from "@/inngest/client";
 import { runLecturePipeline } from "@/lib/pipeline";
+import { generateLecturePracticeTest } from "@/lib/practice-test";
 import { generateLectureQuiz } from "@/lib/quiz";
 import { getServerEnv } from "@/lib/server-env";
 import { generateLectureFlashcards } from "@/lib/study";
@@ -11,6 +12,7 @@ export type LectureProcessingStage = "transcribe" | "generate_notes";
 const INTERNAL_LECTURE_PROCESSING_PATH = "/api/internal/lectures/process";
 const INTERNAL_LECTURE_STUDY_PATH = "/api/internal/lectures/study";
 const INTERNAL_LECTURE_QUIZ_PATH = "/api/internal/lectures/quiz";
+const INTERNAL_LECTURE_PRACTICE_TEST_PATH = "/api/internal/lectures/practice-test";
 
 export async function enqueueLectureProcessingStage(params: {
   lectureId: string;
@@ -54,6 +56,7 @@ export async function enqueueLectureProcessingStage(params: {
 async function enqueueInternalLectureJob(params: {
   lectureId: string;
   path: string;
+  regenerate?: boolean;
 }) {
   const env = getServerEnv();
 
@@ -67,7 +70,10 @@ async function enqueueInternalLectureJob(params: {
       "content-type": "application/json",
       "x-internal-job-secret": env.INTERNAL_JOB_SECRET,
     },
-    body: JSON.stringify({ lectureId: params.lectureId }),
+    body: JSON.stringify({
+      lectureId: params.lectureId,
+      ...(typeof params.regenerate === "boolean" ? { regenerate: params.regenerate } : {}),
+    }),
     cache: "no-store",
   });
 
@@ -144,5 +150,34 @@ export async function enqueueLectureQuizGeneration(lectureId: string) {
 
   await generateLectureQuiz({ lectureId }).catch((error) => {
     console.error("Lecture quiz generation failed", { lectureId, error });
+  });
+}
+
+export async function enqueueLecturePracticeTestGeneration(
+  lectureId: string,
+  regenerate = false,
+) {
+  const env = getServerEnv();
+
+  if (env.INNGEST_EVENT_KEY && env.INNGEST_SIGNING_KEY) {
+    await inngest.send({
+      name: "lecture/practice-test.requested",
+      data: { lectureId, regenerate },
+    });
+    return;
+  }
+
+  if (
+    await enqueueInternalLectureJob({
+      lectureId,
+      path: INTERNAL_LECTURE_PRACTICE_TEST_PATH,
+      regenerate,
+    })
+  ) {
+    return;
+  }
+
+  await generateLecturePracticeTest({ lectureId, regenerate }).catch((error) => {
+    console.error("Lecture practice-test generation failed", { lectureId, regenerate, error });
   });
 }

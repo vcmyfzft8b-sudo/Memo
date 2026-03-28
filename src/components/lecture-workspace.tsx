@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/preserve-manual-memoization */
+
 import {
   ArrowUp,
   Download,
@@ -12,11 +14,16 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { StatusBadge } from "@/components/status-badge";
 import { StudyCompletionCard } from "@/components/study-completion-card";
 import type { FlashcardConfidenceBucket, StudyAssetStatus } from "@/lib/database.types";
-import { POLL_INTERVAL_MS } from "@/lib/constants";
+import {
+  POLL_INTERVAL_MS,
+  PRACTICE_TEST_IMAGE_INPUT_ACCEPT,
+} from "@/lib/constants";
 import type {
   ChatMessageWithCitations,
   LectureDetail,
   PersistedFlashcardSessionState,
+  PersistedPracticeTestPhotoDraft,
+  PersistedPracticeTestSessionState,
   PersistedQuizSessionState,
   QuizQuestionWithOptions,
 } from "@/lib/types";
@@ -26,7 +33,7 @@ import {
 } from "@/lib/utils";
 
 type WorkspaceTab = "notes" | "study" | "chat" | "transcript" | "audio";
-type StudyMaterialView = "flashcards" | "quiz";
+type StudyMaterialView = "flashcards" | "quiz" | "practice_test";
 type FlashcardSessionResult = {
   attempts: number;
   firstConfidence: FlashcardConfidenceBucket;
@@ -60,6 +67,7 @@ type StudySessionSnapshot = {
   activeStudyView: StudyMaterialView;
   flashcardState: PersistedFlashcardSessionState | null;
   quizState: PersistedQuizSessionState | null;
+  practiceTestState: PersistedPracticeTestSessionState | null;
 };
 
 const STUDY_SESSION_STORAGE_KEY_PREFIX = "lecture-study-session:";
@@ -113,11 +121,19 @@ function shouldPollDetail(detail: LectureDetail) {
     return true;
   }
 
+  if (shouldPollAsset(detail.practiceTestAsset?.status)) {
+    return true;
+  }
+
   if (detail.studyAsset?.status === "ready" && detail.flashcards.length === 0) {
     return true;
   }
 
   if (detail.quizAsset?.status === "ready" && detail.quizQuestions.length === 0) {
+    return true;
+  }
+
+  if (detail.practiceTestAsset?.status === "ready" && detail.practiceTestQuestions.length === 0) {
     return true;
   }
 
@@ -151,7 +167,9 @@ function readStudySessionSnapshot(lectureId: string): StudySessionSnapshot | nul
     const parsed = JSON.parse(raw) as Partial<StudySessionSnapshot>;
     if (
       typeof parsed.savedAt !== "string" ||
-      (parsed.activeStudyView !== "flashcards" && parsed.activeStudyView !== "quiz")
+      (parsed.activeStudyView !== "flashcards" &&
+        parsed.activeStudyView !== "quiz" &&
+        parsed.activeStudyView !== "practice_test")
     ) {
       return null;
     }
@@ -161,6 +179,7 @@ function readStudySessionSnapshot(lectureId: string): StudySessionSnapshot | nul
       activeStudyView: parsed.activeStudyView,
       flashcardState: parsed.flashcardState ?? null,
       quizState: parsed.quizState ?? null,
+      practiceTestState: parsed.practiceTestState ?? null,
     };
   } catch {
     return null;
@@ -195,6 +214,7 @@ function mergeLectureDetailWithStoredStudySession(detail: LectureDetail) {
       active_study_view: snapshot.activeStudyView,
       flashcard_state: snapshot.flashcardState,
       quiz_state: snapshot.quizState,
+      practice_test_state: snapshot.practiceTestState,
       created_at: detail.studySession?.created_at ?? snapshot.savedAt,
       updated_at: snapshot.savedAt,
     },
@@ -398,12 +418,23 @@ function getInitialStudyView(detail: LectureDetail): StudyMaterialView {
     return "quiz";
   }
 
+  if (
+    detail.studySession?.active_study_view === "practice_test" &&
+    detail.practiceTestQuestions.length > 0
+  ) {
+    return "practice_test";
+  }
+
   if (detail.flashcards.length > 0) {
     return "flashcards";
   }
 
   if (detail.quizQuestions.length > 0) {
     return "quiz";
+  }
+
+  if (detail.practiceTestQuestions.length > 0) {
+    return "practice_test";
   }
 
   return "flashcards";
@@ -552,6 +583,77 @@ function sanitizeQuizSessionState(
   };
 }
 
+function buildDefaultPracticeTestSessionState(): PersistedPracticeTestSessionState {
+  return {
+    currentAttemptId: null,
+    attemptQuestionIds: [],
+    textAnswers: {},
+    photoDrafts: {},
+    unknownQuestionIds: [],
+    latestViewedAttemptId: null,
+    submittedAt: null,
+  };
+}
+
+function sanitizePracticeTestSessionState(
+  session: PersistedPracticeTestSessionState | null | undefined,
+  detail: LectureDetail,
+): PersistedPracticeTestSessionState {
+  const fallback = buildDefaultPracticeTestSessionState();
+  const attemptsById = new Map(detail.practiceTestAttempts.map((attempt) => [attempt.id, attempt]));
+  const currentAttemptCandidate =
+    session?.currentAttemptId ? attemptsById.get(session.currentAttemptId) ?? null : null;
+  const currentAttempt =
+    (currentAttemptCandidate?.status === "in_progress" ? currentAttemptCandidate : null) ??
+    detail.practiceTestAttempts.find((attempt) => attempt.status === "in_progress") ??
+    null;
+  const latestGradedAttempt =
+    detail.practiceTestAttempts
+      .filter((attempt) => attempt.status === "graded")
+      .slice(-1)[0] ?? null;
+  const attemptQuestionIds = currentAttempt
+    ? currentAttempt.answers
+        .map((answer) => answer.practice_test_question_id)
+        .filter((id): id is string => Boolean(id))
+    : [];
+  const validQuestionIds = new Set(attemptQuestionIds);
+  const textAnswers = Object.fromEntries(
+    Object.entries(session?.textAnswers ?? {}).filter(([questionId]) => validQuestionIds.has(questionId)),
+  );
+  const photoDrafts = Object.fromEntries(
+    Object.entries(session?.photoDrafts ?? {}).filter(([questionId]) => validQuestionIds.has(questionId)),
+  ) as Record<string, PersistedPracticeTestPhotoDraft>;
+
+  for (const answer of currentAttempt?.answers ?? []) {
+    if (!textAnswers[answer.practice_test_question_id] && answer.typed_answer) {
+      textAnswers[answer.practice_test_question_id] = answer.typed_answer;
+    }
+
+    if (!photoDrafts[answer.practice_test_question_id] && answer.photo_path) {
+      photoDrafts[answer.practice_test_question_id] = {
+        fileName: answer.photo_path.split("/").pop() ?? "answer",
+        previewUrl: answer.photoUrl,
+        uploadedPath: answer.photo_path,
+        mimeType: answer.photo_mime_type,
+      };
+    }
+  }
+
+  return {
+    currentAttemptId: currentAttempt?.id ?? null,
+    attemptQuestionIds,
+    textAnswers,
+    photoDrafts,
+    unknownQuestionIds: (session?.unknownQuestionIds ?? []).filter((id) => validQuestionIds.has(id)),
+    latestViewedAttemptId:
+      session?.latestViewedAttemptId ??
+      latestGradedAttempt?.id ??
+      currentAttempt?.id ??
+      null,
+    submittedAt: session?.submittedAt ?? null,
+  };
+}
+
 function ChatBubble({ message }: { message: ChatMessageWithCitations }) {
   const assistant = message.role === "assistant";
 
@@ -590,6 +692,10 @@ export function LectureWorkspace({
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isRegeneratingStudy, setIsRegeneratingStudy] = useState(false);
   const [isRegeneratingQuiz, setIsRegeneratingQuiz] = useState(false);
+  const [isRegeneratingPracticeTest, setIsRegeneratingPracticeTest] = useState(false);
+  const [isStartingPracticeTest, setIsStartingPracticeTest] = useState(false);
+  const [isSubmittingPracticeTest, setIsSubmittingPracticeTest] = useState(false);
+  const [activePracticeUploadAnswerId, setActivePracticeUploadAnswerId] = useState<string | null>(null);
   const [studyError, setStudyError] = useState<string | null>(null);
   const [isFlashcardFlipped, setIsFlashcardFlipped] = useState(false);
   const [activeStudyView, setActiveStudyView] = useState<StudyMaterialView>(
@@ -606,6 +712,10 @@ export function LectureWorkspace({
     initialDetail.studySession?.quiz_state,
     initialDetail.quizQuestions.map((question) => question.id),
     initialQuizQuestionsById,
+  );
+  const initialPracticeTestSession = sanitizePracticeTestSessionState(
+    initialDetail.studySession?.practice_test_state,
+    initialDetail,
   );
   const [reviewQueue, setReviewQueue] = useState<string[]>(initialFlashcardSession.reviewQueue);
   const [repeatQueue, setRepeatQueue] = useState<string[]>(initialFlashcardSession.repeatQueue);
@@ -636,16 +746,46 @@ export function LectureWorkspace({
   const [quizOptionOrders, setQuizOptionOrders] = useState<Map<string, number[]>>(
     new Map(Object.entries(initialQuizSession.optionOrders)),
   );
+  const [currentPracticeAttemptId, setCurrentPracticeAttemptId] = useState<string | null>(
+    initialPracticeTestSession.currentAttemptId,
+  );
+  const [practiceAttemptQuestionIds, setPracticeAttemptQuestionIds] = useState<string[]>(
+    initialPracticeTestSession.attemptQuestionIds,
+  );
+  const [practiceTextAnswers, setPracticeTextAnswers] = useState<Record<string, string>>(
+    initialPracticeTestSession.textAnswers,
+  );
+  const [practicePhotoDrafts, setPracticePhotoDrafts] = useState<
+    Record<string, PersistedPracticeTestPhotoDraft>
+  >(initialPracticeTestSession.photoDrafts);
+  const [practiceUnknownQuestionIds, setPracticeUnknownQuestionIds] = useState<string[]>(
+    initialPracticeTestSession.unknownQuestionIds,
+  );
+  const [latestViewedPracticeAttemptId, setLatestViewedPracticeAttemptId] = useState<string | null>(
+    initialPracticeTestSession.latestViewedAttemptId,
+  );
+  const [practiceSubmittedAt, setPracticeSubmittedAt] = useState<string | null>(
+    initialPracticeTestSession.submittedAt,
+  );
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const practicePhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const practicePhotoTargetRef = useRef<{ answerId: string; questionIndex: number } | null>(null);
   const flashcardFeedbackTimerRef = useRef<number | null>(null);
   const flashcardFeedbackTokenRef = useRef(0);
   const studySessionPayloadRef = useRef<string | null>(null);
   const studyDeck = detail.flashcards;
   const flashcardDeckKey = studyDeck.map((flashcard) => flashcard.id).join("|");
   const quizDeckKey = detail.quizQuestions.map((question) => question.id).join("|");
+  const practiceAttemptDeckKey = detail.practiceTestAttempts
+    .map((attempt) => `${attempt.id}:${attempt.status}:${attempt.updated_at}`)
+    .join("|");
   const quizQuestionsById = useMemo(
     () => new Map(detail.quizQuestions.map((question) => [question.id, question])),
     [detail.quizQuestions],
+  );
+  const practiceAttemptsById = useMemo(
+    () => new Map(detail.practiceTestAttempts.map((attempt) => [attempt.id, attempt])),
+    [detail.practiceTestAttempts],
   );
   const currentReviewFlashcardId = reviewQueue[0] ?? null;
   const showsTranscript = detail.lecture.source_type === "audio";
@@ -671,9 +811,31 @@ export function LectureWorkspace({
 
   useEffect(() => {
     if (activeTab === "study") {
-      setActiveStudyView("flashcards");
+      setActiveStudyView((current) => {
+        if (current === "practice_test" && detail.practiceTestQuestions.length > 0) {
+          return current;
+        }
+
+        if (current === "quiz" && detail.quizQuestions.length > 0) {
+          return current;
+        }
+
+        if (detail.flashcards.length > 0) {
+          return "flashcards";
+        }
+
+        if (detail.quizQuestions.length > 0) {
+          return "quiz";
+        }
+
+        if (detail.practiceTestQuestions.length > 0) {
+          return "practice_test";
+        }
+
+        return "flashcards";
+      });
     }
-  }, [activeTab]);
+  }, [activeTab, detail.flashcards.length, detail.practiceTestQuestions.length, detail.quizQuestions.length]);
 
   useEffect(() => {
     if (!shouldPollCurrentDetail) {
@@ -721,6 +883,8 @@ export function LectureWorkspace({
     detail.flashcards.length,
     detail.lecture.id,
     detail.lecture.status,
+    detail.practiceTestAsset?.status,
+    detail.practiceTestQuestions.length,
     detail.quizAsset?.status,
     detail.quizQuestions.length,
     detail.studyAsset?.status,
@@ -764,6 +928,21 @@ export function LectureWorkspace({
     setQuizSelections(nextState.selections);
     setQuizOptionOrders(new Map(Object.entries(nextState.optionOrders)));
   }, [detail.studySession?.quiz_state, quizDeckKey, quizQuestionsById]);
+
+  useEffect(() => {
+    const nextState = sanitizePracticeTestSessionState(
+      detail.studySession?.practice_test_state,
+      detail,
+    );
+
+    setCurrentPracticeAttemptId(nextState.currentAttemptId);
+    setPracticeAttemptQuestionIds(nextState.attemptQuestionIds);
+    setPracticeTextAnswers(nextState.textAnswers);
+    setPracticePhotoDrafts(nextState.photoDrafts);
+    setPracticeUnknownQuestionIds(nextState.unknownQuestionIds);
+    setLatestViewedPracticeAttemptId(nextState.latestViewedAttemptId);
+    setPracticeSubmittedAt(nextState.submittedAt);
+  }, [detail.studySession?.practice_test_state, detail, practiceAttemptDeckKey]);
 
   useEffect(() => {
     return () => {
@@ -818,6 +997,18 @@ export function LectureWorkspace({
               optionOrders: serializeQuizOptionOrders(quizOptionOrders),
             }
           : null,
+      practiceTestState:
+        detail.practiceTestQuestions.length > 0
+          ? {
+              currentAttemptId: currentPracticeAttemptId,
+              attemptQuestionIds: practiceAttemptQuestionIds,
+              textAnswers: practiceTextAnswers,
+              photoDrafts: practicePhotoDrafts,
+              unknownQuestionIds: practiceUnknownQuestionIds,
+              latestViewedAttemptId: latestViewedPracticeAttemptId,
+              submittedAt: practiceSubmittedAt,
+            }
+          : null,
     };
     const payload = JSON.stringify(nextSession);
 
@@ -845,10 +1036,18 @@ export function LectureWorkspace({
     activeQuizQuestionIndex,
     activeStudyView,
     cycleCardCount,
+    currentPracticeAttemptId,
     detail.lecture.id,
+    detail.practiceTestQuestions.length,
     detail.quizQuestions.length,
     flashcardRoundSummary,
     flashcardSessionResults,
+    latestViewedPracticeAttemptId,
+    practiceAttemptQuestionIds,
+    practicePhotoDrafts,
+    practiceSubmittedAt,
+    practiceTextAnswers,
+    practiceUnknownQuestionIds,
     quizOptionOrders,
     quizQueue,
     quizRound,
@@ -965,8 +1164,36 @@ export function LectureWorkspace({
     quizRoundSummary && quizRoundSummary.total > 0
       ? Math.round((quizRoundSummary.correct / quizRoundSummary.total) * 100)
       : 0;
+  const persistedPracticeAttempt =
+    currentPracticeAttemptId ? practiceAttemptsById.get(currentPracticeAttemptId) ?? null : null;
+  const currentPracticeAttempt =
+    (persistedPracticeAttempt?.status === "in_progress" ? persistedPracticeAttempt : null) ??
+    detail.practiceTestAttempts.find((attempt) => attempt.status === "in_progress") ??
+    null;
+  const latestPracticeAttempt =
+    detail.practiceTestAttempts.length > 0
+      ? detail.practiceTestAttempts[detail.practiceTestAttempts.length - 1] ?? null
+      : null;
+  const visiblePracticeAttempt =
+    (latestViewedPracticeAttemptId
+      ? practiceAttemptsById.get(latestViewedPracticeAttemptId) ?? null
+      : null) ?? latestPracticeAttempt;
+  const practiceHistory = detail.practiceTestHistorySummary.scoresByAttempt;
+  const practiceAttemptAnswers = currentPracticeAttempt?.answers ?? [];
+  const practiceQuestionsAnsweredCount = practiceAttemptAnswers.filter((answer) => {
+    const questionId = answer.practice_test_question_id;
+    return (
+      practiceUnknownQuestionIds.includes(questionId) ||
+      Boolean(practicePhotoDrafts[questionId]?.uploadedPath) ||
+      Boolean(practiceTextAnswers[questionId]?.trim())
+    );
+  }).length;
   const activeMaterialStatus =
-    activeStudyView === "flashcards" ? detail.studyAsset?.status : detail.quizAsset?.status;
+    activeStudyView === "flashcards"
+      ? detail.studyAsset?.status
+      : activeStudyView === "quiz"
+        ? detail.quizAsset?.status
+        : detail.practiceTestAsset?.status;
   const activeMaterialStatusLabel = studyAssetStatusLabel(activeMaterialStatus);
 
   async function handleRetry() {
@@ -1030,6 +1257,201 @@ export function LectureWorkspace({
       return;
     }
 
+    await refreshLectureDetail();
+  }
+
+  async function handlePracticeTestCreate() {
+    setStudyError(null);
+    setIsRegeneratingPracticeTest(true);
+    const response = await fetch(`/api/lectures/${detail.lecture.id}/practice-test`, {
+      method: "POST",
+    });
+    const payload = await response.json().catch(() => null);
+    setIsRegeneratingPracticeTest(false);
+
+    if (!response.ok) {
+      setStudyError(payload?.error ?? "Practice test could not be created.");
+      return;
+    }
+
+    await refreshLectureDetail();
+  }
+
+  async function handlePracticeTestRegenerate() {
+    setStudyError(null);
+    setIsRegeneratingPracticeTest(true);
+    const response = await fetch(`/api/lectures/${detail.lecture.id}/practice-test/regenerate`, {
+      method: "POST",
+    });
+    const payload = await response.json().catch(() => null);
+    setIsRegeneratingPracticeTest(false);
+
+    if (!response.ok) {
+      setStudyError(payload?.error ?? "Practice-test bank could not be regenerated.");
+      return;
+    }
+
+    setCurrentPracticeAttemptId(null);
+    setPracticeAttemptQuestionIds([]);
+    setPracticeTextAnswers({});
+    setPracticePhotoDrafts({});
+    setPracticeUnknownQuestionIds([]);
+    setLatestViewedPracticeAttemptId(null);
+    setPracticeSubmittedAt(null);
+    await refreshLectureDetail();
+  }
+
+  async function handlePracticeTestStart() {
+    setStudyError(null);
+    setIsStartingPracticeTest(true);
+    const response = await fetch(`/api/lectures/${detail.lecture.id}/practice-test/attempt`, {
+      method: "POST",
+    });
+    const payload = await response.json().catch(() => null);
+    setIsStartingPracticeTest(false);
+
+    if (!response.ok) {
+      setStudyError(payload?.error ?? "A new practice test could not be started.");
+      return;
+    }
+
+    setCurrentPracticeAttemptId(payload?.id ?? null);
+    setPracticeAttemptQuestionIds(
+      Array.isArray(payload?.questions) ? payload.questions.map((question: { id: string }) => question.id) : [],
+    );
+    setPracticeTextAnswers({});
+    setPracticePhotoDrafts({});
+    setPracticeUnknownQuestionIds([]);
+    setLatestViewedPracticeAttemptId(payload?.id ?? null);
+    setPracticeSubmittedAt(null);
+    await refreshLectureDetail();
+  }
+
+  function handlePracticeAnswerChange(questionId: string, value: string) {
+    setPracticeTextAnswers((current) => ({
+      ...current,
+      [questionId]: value,
+    }));
+  }
+
+  function handlePracticeUnknownToggle(questionId: string, enabled: boolean) {
+    setPracticeUnknownQuestionIds((current) => {
+      if (enabled) {
+        return current.includes(questionId) ? current : [...current, questionId];
+      }
+
+      return current.filter((id) => id !== questionId);
+    });
+
+    if (enabled) {
+      setPracticeTextAnswers((current) => {
+        const next = { ...current };
+        delete next[questionId];
+        return next;
+      });
+      setPracticePhotoDrafts((current) => {
+        const next = { ...current };
+        delete next[questionId];
+        return next;
+      });
+    }
+  }
+
+  function promptPracticePhotoUpload(answerId: string, questionIndex: number) {
+    practicePhotoTargetRef.current = {
+      answerId,
+      questionIndex,
+    };
+    practicePhotoInputRef.current?.click();
+  }
+
+  async function handlePracticePhotoSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    const target = practicePhotoTargetRef.current;
+
+    if (!file || !target || !currentPracticeAttemptId) {
+      return;
+    }
+
+    const targetAnswer = currentPracticeAttempt?.answers.find((answer) => answer.id === target.answerId);
+    if (!targetAnswer) {
+      return;
+    }
+
+    setStudyError(null);
+    setActivePracticeUploadAnswerId(target.answerId);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("answerId", target.answerId);
+    formData.append("questionIndex", String(target.questionIndex));
+
+    const response = await fetch(
+      `/api/lectures/${detail.lecture.id}/practice-test/attempt/${currentPracticeAttemptId}/photo`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+    const payload = await response.json().catch(() => null);
+    setActivePracticeUploadAnswerId(null);
+    event.target.value = "";
+
+    if (!response.ok) {
+      setStudyError(payload?.error ?? "The answer photo could not be uploaded.");
+      return;
+    }
+
+    setPracticePhotoDrafts((current) => ({
+      ...current,
+      [targetAnswer.practice_test_question_id]: {
+        fileName: file.name,
+        previewUrl: payload?.photoUrl ?? null,
+        uploadedPath: payload?.path ?? null,
+        mimeType: payload?.mimeType ?? file.type ?? null,
+      },
+    }));
+  }
+
+  async function handlePracticeTestSubmit() {
+    if (!currentPracticeAttempt) {
+      return;
+    }
+
+    const answers = currentPracticeAttempt.answers.map((answer) => {
+      const questionId = answer.practice_test_question_id;
+      return {
+        answerId: answer.id,
+        typedAnswer: practiceTextAnswers[questionId] ?? "",
+        declaredUnknown: practiceUnknownQuestionIds.includes(questionId),
+        photoPath: practicePhotoDrafts[questionId]?.uploadedPath ?? null,
+        photoMimeType: practicePhotoDrafts[questionId]?.mimeType ?? null,
+      };
+    });
+
+    setStudyError(null);
+    setIsSubmittingPracticeTest(true);
+    const response = await fetch(
+      `/api/lectures/${detail.lecture.id}/practice-test/attempt/${currentPracticeAttempt.id}/submit`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ answers }),
+      },
+    );
+    const payload = await response.json().catch(() => null);
+    setIsSubmittingPracticeTest(false);
+
+    if (!response.ok) {
+      setStudyError(payload?.error ?? "The practice test could not be submitted.");
+      return;
+    }
+
+    const submittedAt = new Date().toISOString();
+    setPracticeSubmittedAt(submittedAt);
+    setLatestViewedPracticeAttemptId(currentPracticeAttempt.id);
     await refreshLectureDetail();
   }
 
@@ -1424,7 +1846,9 @@ export function LectureWorkspace({
       const activeMaterialError =
         activeStudyView === "flashcards"
           ? detail.studyAsset?.error_message
-          : detail.quizAsset?.error_message;
+          : activeStudyView === "quiz"
+            ? detail.quizAsset?.error_message
+            : detail.practiceTestAsset?.error_message;
 
       return (
         <div className="workspace-panel-stack lecture-panel-stack">
@@ -1447,6 +1871,7 @@ export function LectureWorkspace({
               {([
                 { id: "flashcards", label: "Flashcards" },
                 { id: "quiz", label: "Quiz" },
+                { id: "practice_test", label: "Practice test" },
               ] as const).map((item) => (
                 <button
                   key={item.id}
@@ -1458,6 +1883,15 @@ export function LectureWorkspace({
                 </button>
               ))}
             </div>
+
+            <input
+              ref={practicePhotoInputRef}
+              type="file"
+              accept={PRACTICE_TEST_IMAGE_INPUT_ACCEPT}
+              capture="environment"
+              className="hidden"
+              onChange={(event) => void handlePracticePhotoSelected(event)}
+            />
 
             {studyError ? <p className="danger-panel lecture-inline-note">{studyError}</p> : null}
             {activeMaterialError ? (
@@ -1659,64 +2093,173 @@ export function LectureWorkspace({
                   }
                 />
               )
-            ) : totalQuizQuestions === 0 ? (
-              <div className="empty-state lecture-empty-card lecture-study-empty">
-                <p className="ios-row-title">
-                  {detail.lecture.status !== "ready"
-                    ? "Study tools unlock after note processing finishes."
-                    : shouldPollAsset(detail.quizAsset?.status)
-                      ? "Creating quiz."
-                      : detail.quizAsset?.status === "failed"
-                        ? "Quiz creation failed."
-                        : "Create a quiz when you're ready."}
-                </p>
-                <p className="ios-row-subtitle">
-                  {detail.lecture.status !== "ready"
-                    ? "Notes are created first. After that, you can generate quizzes manually."
-                    : shouldPollAsset(detail.quizAsset?.status)
-                      ? "This view refreshes automatically as your quiz is prepared."
-                      : "Generate multiple-choice questions in the same language as your notes."}
-                </p>
-                {detail.lecture.status === "ready" && !shouldPollAsset(detail.quizAsset?.status) ? (
-                  <button
-                    type="button"
-                    onClick={() => void handleQuizCreate()}
-                    disabled={isRegeneratingQuiz}
-                    className="lecture-study-refresh lecture-study-create-button"
-                  >
-                    {isRegeneratingQuiz ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : null}
-                    Create quiz
-                  </button>
-                ) : null}
-                {shouldPollAsset(detail.quizAsset?.status) ? (
-                  <p className="lecture-study-hint">{quizStageCopy}</p>
-                ) : null}
-              </div>
-            ) : quizRoundSummary ? (
-              <StudyCompletionCard
-                eyebrow={
-                  quizRoundSummary.missed === 0
-                    ? "Completed"
-                    : `Round ${quizRoundSummary.cycle} complete`
-                }
-                title={
-                  quizRoundSummary.missed === 0
-                    ? "All quiz questions cleared"
-                    : "Review the questions you missed"
-                }
-                percentage={quizRoundSummary.missed === 0 ? 100 : quizRoundPercent}
-                percentageLabel={quizRoundSummary.missed === 0 ? "Deck cleared" : "Round score"}
-                primaryMetric={{
-                  label: quizRoundSummary.missed === 0 ? "Questions cleared" : "Correct this round",
-                  value:
+            ) : activeStudyView === "quiz" ? (
+              totalQuizQuestions === 0 ? (
+                <div className="empty-state lecture-empty-card lecture-study-empty">
+                  <p className="ios-row-title">
+                    {detail.lecture.status !== "ready"
+                      ? "Study tools unlock after note processing finishes."
+                      : shouldPollAsset(detail.quizAsset?.status)
+                        ? "Creating quiz."
+                        : detail.quizAsset?.status === "failed"
+                          ? "Quiz creation failed."
+                          : "Create a quiz when you're ready."}
+                  </p>
+                  <p className="ios-row-subtitle">
+                    {detail.lecture.status !== "ready"
+                      ? "Notes are created first. After that, you can generate quizzes manually."
+                      : shouldPollAsset(detail.quizAsset?.status)
+                        ? "This view refreshes automatically as your quiz is prepared."
+                        : "Generate multiple-choice questions in the same language as your notes."}
+                  </p>
+                  {detail.lecture.status === "ready" && !shouldPollAsset(detail.quizAsset?.status) ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleQuizCreate()}
+                      disabled={isRegeneratingQuiz}
+                      className="lecture-study-refresh lecture-study-create-button"
+                    >
+                      {isRegeneratingQuiz ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      Create quiz
+                    </button>
+                  ) : null}
+                  {shouldPollAsset(detail.quizAsset?.status) ? (
+                    <p className="lecture-study-hint">{quizStageCopy}</p>
+                  ) : null}
+                </div>
+              ) : quizRoundSummary ? (
+                <StudyCompletionCard
+                  eyebrow={
                     quizRoundSummary.missed === 0
-                      ? `${totalQuizQuestions}/${totalQuizQuestions}`
-                      : `${quizRoundSummary.correct}/${quizRoundSummary.total}`,
-                }}
-                actions={
-                  quizRoundSummary.missed === 0 ? (
+                      ? "Completed"
+                      : `Round ${quizRoundSummary.cycle} complete`
+                  }
+                  title={
+                    quizRoundSummary.missed === 0
+                      ? "All quiz questions cleared"
+                      : "Review the questions you missed"
+                  }
+                  percentage={quizRoundSummary.missed === 0 ? 100 : quizRoundPercent}
+                  percentageLabel={quizRoundSummary.missed === 0 ? "Deck cleared" : "Round score"}
+                  primaryMetric={{
+                    label: quizRoundSummary.missed === 0 ? "Questions cleared" : "Correct this round",
+                    value:
+                      quizRoundSummary.missed === 0
+                        ? `${totalQuizQuestions}/${totalQuizQuestions}`
+                        : `${quizRoundSummary.correct}/${quizRoundSummary.total}`,
+                  }}
+                  actions={
+                    quizRoundSummary.missed === 0 ? (
+                      <button
+                        type="button"
+                        onClick={restartQuiz}
+                        className="lecture-study-refresh lecture-study-restart"
+                      >
+                        <EmojiIcon symbol="🔄" size="1rem" />
+                        Restart quiz
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={continueQuizReview}
+                        className="lecture-study-refresh lecture-study-restart"
+                      >
+                        <EmojiIcon symbol="🔄" size="1rem" />
+                        Review {quizRoundSummary.missed}{" "}
+                        {quizRoundSummary.missed === 1 ? "missed question" : "missed questions"}
+                      </button>
+                    )
+                  }
+                />
+              ) : activeQuizQuestion ? (
+                <div className="lecture-quiz-stage">
+                  <div className="lecture-quiz-meta">
+                    <span>{activeQuizQuestionIndex + 1} / {quizRoundCount}</span>
+                    {quizRound > 1 ? <span>Cycle {quizRound}</span> : null}
+                  </div>
+
+                  <div className="lecture-quiz-card">
+                    <p className="lecture-quiz-prompt">{activeQuizQuestion.prompt}</p>
+
+                    <div className="lecture-quiz-options">
+                      {activeQuizOptionOrder.map((optionIndex, displayIndex) => {
+                        const option = activeQuizQuestion.options[optionIndex] ?? "";
+                        const isSelected = activeQuizSelection === optionIndex;
+                        const isCorrect =
+                          activeQuizSelection !== null &&
+                          optionIndex === activeQuizQuestion.correct_option_idx;
+                        const isIncorrect =
+                          activeQuizSelection !== null &&
+                          isSelected &&
+                          optionIndex !== activeQuizQuestion.correct_option_idx;
+
+                        return (
+                          <button
+                            key={`${activeQuizQuestion.id}-${optionIndex}`}
+                            type="button"
+                            onClick={() => handleQuizSelection(optionIndex)}
+                            disabled={activeQuizSelection !== null}
+                            className={`lecture-quiz-option ${isSelected ? "selected" : ""} ${isCorrect ? "correct" : ""} ${isIncorrect ? "incorrect" : ""}`}
+                          >
+                            <span className="lecture-quiz-option-label">
+                              {String.fromCharCode(65 + displayIndex)}
+                            </span>
+                            <span className="lecture-quiz-option-copy">{option}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {activeQuizSelection !== null ? (
+                      <div className="lecture-quiz-feedback">
+                        <p
+                          className={`lecture-quiz-feedback-title ${
+                            activeQuizSelection === activeQuizQuestion.correct_option_idx
+                              ? "correct"
+                              : "incorrect"
+                          }`}
+                        >
+                          {activeQuizSelection === activeQuizQuestion.correct_option_idx
+                            ? "Correct"
+                            : "Incorrect"}
+                        </p>
+                        <p className="lecture-quiz-feedback-copy">{activeQuizQuestion.explanation}</p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="lecture-quiz-actions">
+                    <button
+                      type="button"
+                      onClick={() => moveQuizQuestion(-1)}
+                      disabled={activeQuizQuestionIndex === 0}
+                      className="lecture-study-action"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveQuizQuestion(1)}
+                      disabled={activeQuizSelection === null}
+                      className="lecture-study-refresh"
+                    >
+                      {activeQuizQuestionIndex === quizQueue.length - 1 ? "Finish" : "Next"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <StudyCompletionCard
+                  eyebrow="Congratulations"
+                  title="Quiz complete"
+                  percentage={100}
+                  percentageLabel="Deck cleared"
+                  primaryMetric={{
+                    label: "Questions cleared",
+                    value: `${totalQuizQuestions}/${totalQuizQuestions}`,
+                  }}
+                  actions={
                     <button
                       type="button"
                       onClick={restartQuiz}
@@ -1725,116 +2268,256 @@ export function LectureWorkspace({
                       <EmojiIcon symbol="🔄" size="1rem" />
                       Restart quiz
                     </button>
-                  ) : (
+                  }
+                />
+              )
+            ) : detail.practiceTestQuestions.length === 0 ? (
+              <div className="empty-state lecture-empty-card lecture-study-empty">
+                <p className="ios-row-title">
+                  {detail.lecture.status !== "ready"
+                    ? "Study tools unlock after note processing finishes."
+                    : shouldPollAsset(detail.practiceTestAsset?.status)
+                      ? "Creating practice test."
+                      : detail.practiceTestAsset?.status === "failed"
+                        ? "Practice-test creation failed."
+                        : "Create a practice test when you're ready."}
+                </p>
+                <p className="ios-row-subtitle">
+                  {detail.lecture.status !== "ready"
+                    ? "Notes are created first. After that, you can generate a practice test manually."
+                    : shouldPollAsset(detail.practiceTestAsset?.status)
+                      ? "This view refreshes automatically as your question bank is prepared."
+                      : "Generate a reusable bank of open-ended test questions and start a new random test anytime."}
+                </p>
+                {detail.lecture.status === "ready" && !shouldPollAsset(detail.practiceTestAsset?.status) ? (
+                  <button
+                    type="button"
+                    onClick={() => void handlePracticeTestCreate()}
+                    disabled={isRegeneratingPracticeTest}
+                    className="lecture-study-refresh lecture-study-create-button"
+                  >
+                    {isRegeneratingPracticeTest ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    Create practice test
+                  </button>
+                ) : null}
+              </div>
+            ) : currentPracticeAttempt ? (
+              <div className="lecture-practice-shell">
+                <div className="lecture-practice-summary">
+                  <div>
+                    <p className="lecture-practice-kicker">Practice test</p>
+                    <h3>Answer all questions and submit once at the end</h3>
+                    <p>
+                      {practiceQuestionsAnsweredCount} / {practiceAttemptAnswers.length} questions ready
+                    </p>
+                  </div>
+                  <div className="lecture-practice-summary-actions">
                     <button
                       type="button"
-                      onClick={continueQuizReview}
-                      className="lecture-study-refresh lecture-study-restart"
+                      onClick={() => void handlePracticeTestRegenerate()}
+                      disabled={isRegeneratingPracticeTest || isSubmittingPracticeTest}
+                      className="lecture-study-action"
                     >
-                      <EmojiIcon symbol="🔄" size="1rem" />
-                      Review {quizRoundSummary.missed}{" "}
-                      {quizRoundSummary.missed === 1 ? "missed question" : "missed questions"}
+                      Regenerate bank
                     </button>
-                  )
-                }
-              />
-            ) : activeQuizQuestion ? (
-              <div className="lecture-quiz-stage">
-                <div className="lecture-quiz-meta">
-                  <span>{activeQuizQuestionIndex + 1} / {quizRoundCount}</span>
-                  {quizRound > 1 ? <span>Cycle {quizRound}</span> : null}
-                </div>
-
-                <div className="lecture-quiz-card">
-                  <p className="lecture-quiz-prompt">{activeQuizQuestion.prompt}</p>
-
-                  <div className="lecture-quiz-options">
-                    {activeQuizOptionOrder.map((optionIndex, displayIndex) => {
-                      const option = activeQuizQuestion.options[optionIndex] ?? "";
-                      const isSelected = activeQuizSelection === optionIndex;
-                      const isCorrect =
-                        activeQuizSelection !== null &&
-                        optionIndex === activeQuizQuestion.correct_option_idx;
-                      const isIncorrect =
-                        activeQuizSelection !== null &&
-                        isSelected &&
-                        optionIndex !== activeQuizQuestion.correct_option_idx;
-
-                      return (
-                        <button
-                          key={`${activeQuizQuestion.id}-${optionIndex}`}
-                          type="button"
-                          onClick={() => handleQuizSelection(optionIndex)}
-                          disabled={activeQuizSelection !== null}
-                          className={`lecture-quiz-option ${isSelected ? "selected" : ""} ${isCorrect ? "correct" : ""} ${isIncorrect ? "incorrect" : ""}`}
-                        >
-                          <span className="lecture-quiz-option-label">
-                            {String.fromCharCode(65 + displayIndex)}
-                          </span>
-                          <span className="lecture-quiz-option-copy">{option}</span>
-                        </button>
-                      );
-                    })}
                   </div>
-
-                  {activeQuizSelection !== null ? (
-                    <div className="lecture-quiz-feedback">
-                      <p
-                        className={`lecture-quiz-feedback-title ${
-                          activeQuizSelection === activeQuizQuestion.correct_option_idx
-                            ? "correct"
-                            : "incorrect"
-                        }`}
-                      >
-                        {activeQuizSelection === activeQuizQuestion.correct_option_idx
-                          ? "Correct"
-                          : "Incorrect"}
-                      </p>
-                      <p className="lecture-quiz-feedback-copy">{activeQuizQuestion.explanation}</p>
-                    </div>
-                  ) : null}
                 </div>
 
-                <div className="lecture-quiz-actions">
+                <div className="lecture-practice-list">
+                  {practiceAttemptAnswers.map((answer, index) => {
+                    const question = answer.question;
+                    const questionId = answer.practice_test_question_id;
+                    const isUnknown = practiceUnknownQuestionIds.includes(questionId);
+                    const draft = practicePhotoDrafts[questionId];
+
+                    return (
+                      <div key={answer.id} className="lecture-practice-card">
+                        <div className="lecture-practice-card-header">
+                          <span>Question {index + 1}</span>
+                          {question?.difficulty ? <span>{question.difficulty}</span> : null}
+                        </div>
+                        <p className="lecture-practice-prompt">{question?.prompt ?? "Question unavailable."}</p>
+                        <textarea
+                          value={practiceTextAnswers[questionId] ?? ""}
+                          onChange={(event) => handlePracticeAnswerChange(questionId, event.target.value)}
+                          disabled={isUnknown}
+                          className="ios-textarea lecture-practice-textarea"
+                          placeholder="Write your answer here..."
+                        />
+                        <div className="lecture-practice-controls">
+                          <label className="lecture-practice-unknown">
+                            <input
+                              type="checkbox"
+                              checked={isUnknown}
+                              onChange={(event) =>
+                                handlePracticeUnknownToggle(questionId, event.target.checked)
+                              }
+                            />
+                            I don&apos;t know
+                          </label>
+                          <button
+                            type="button"
+                            disabled={isUnknown || activePracticeUploadAnswerId === answer.id}
+                            onClick={() => promptPracticePhotoUpload(answer.id, index)}
+                            className="lecture-study-action"
+                          >
+                            {activePracticeUploadAnswerId === answer.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : null}
+                            {draft?.uploadedPath ? "Replace photo" : "Attach photo"}
+                          </button>
+                        </div>
+                        {draft?.previewUrl ? (
+                          <div className="lecture-practice-photo-preview">
+                            <img src={draft.previewUrl} alt={`Answer ${index + 1}`} />
+                            <span>{draft.fileName}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="lecture-practice-submit">
                   <button
                     type="button"
-                    onClick={() => moveQuizQuestion(-1)}
-                    disabled={activeQuizQuestionIndex === 0}
-                    className="lecture-study-action"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveQuizQuestion(1)}
-                    disabled={activeQuizSelection === null}
+                    onClick={() => void handlePracticeTestSubmit()}
+                    disabled={
+                      isSubmittingPracticeTest ||
+                      activePracticeUploadAnswerId !== null ||
+                      practiceQuestionsAnsweredCount < practiceAttemptAnswers.length
+                    }
                     className="lecture-study-refresh"
                   >
-                    {activeQuizQuestionIndex === quizQueue.length - 1 ? "Finish" : "Next"}
+                    {isSubmittingPracticeTest ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Submit test
                   </button>
                 </div>
               </div>
             ) : (
-              <StudyCompletionCard
-                eyebrow="Congratulations"
-                title="Quiz complete"
-                percentage={100}
-                percentageLabel="Deck cleared"
-                primaryMetric={{
-                  label: "Questions cleared",
-                  value: `${totalQuizQuestions}/${totalQuizQuestions}`,
-                }}
-                actions={
-                  <button
-                    type="button"
-                    onClick={restartQuiz}
-                    className="lecture-study-refresh lecture-study-restart"
-                  >
-                    <EmojiIcon symbol="🔄" size="1rem" />
-                    Restart quiz
-                  </button>
-                }
-              />
+              <div className="lecture-practice-shell">
+                <div className="lecture-practice-summary">
+                  <div>
+                    <p className="lecture-practice-kicker">Practice test</p>
+                    <h3>Generate a new random test whenever you want</h3>
+                    <p>
+                      Bank: {detail.practiceTestQuestions.length} questions. Attempts:{" "}
+                      {detail.practiceTestHistorySummary.attemptCount}
+                    </p>
+                  </div>
+                  <div className="lecture-practice-summary-actions">
+                    <button
+                      type="button"
+                      onClick={() => void handlePracticeTestStart()}
+                      disabled={isStartingPracticeTest}
+                      className="lecture-study-refresh"
+                    >
+                      {isStartingPracticeTest ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      {detail.practiceTestHistorySummary.attemptCount > 0 ? "Start new test" : "Start practice test"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handlePracticeTestRegenerate()}
+                      disabled={isRegeneratingPracticeTest}
+                      className="lecture-study-action"
+                    >
+                      Regenerate bank
+                    </button>
+                  </div>
+                </div>
+
+                {visiblePracticeAttempt ? (
+                  <div className="lecture-practice-results">
+                    <div className="lecture-practice-score-card">
+                      <p className="lecture-practice-kicker">Latest result</p>
+                      <strong>
+                        {visiblePracticeAttempt.total_score ?? 0}/{visiblePracticeAttempt.max_score ?? 0}
+                      </strong>
+                      <span>{Math.round(visiblePracticeAttempt.percentage ?? 0)}%</span>
+                    </div>
+                    <div className="lecture-practice-metrics">
+                      <div className="lecture-practice-metric">
+                        <span>Average</span>
+                        <strong>
+                          {detail.practiceTestHistorySummary.averagePercentage == null
+                            ? "-"
+                            : `${Math.round(detail.practiceTestHistorySummary.averagePercentage)}%`}
+                        </strong>
+                      </div>
+                      <div className="lecture-practice-metric">
+                        <span>Best</span>
+                        <strong>
+                          {detail.practiceTestHistorySummary.bestPercentage == null
+                            ? "-"
+                            : `${Math.round(detail.practiceTestHistorySummary.bestPercentage)}%`}
+                        </strong>
+                      </div>
+                      <div className="lecture-practice-metric">
+                        <span>Lowest</span>
+                        <strong>
+                          {detail.practiceTestHistorySummary.lowestPercentage == null
+                            ? "-"
+                            : `${Math.round(detail.practiceTestHistorySummary.lowestPercentage)}%`}
+                        </strong>
+                      </div>
+                      <div className="lecture-practice-metric">
+                        <span>Attempts</span>
+                        <strong>{detail.practiceTestHistorySummary.attemptCount}</strong>
+                      </div>
+                    </div>
+
+                    <div className="lecture-practice-history">
+                      <h4>Score history</h4>
+                      <div className="lecture-practice-history-list">
+                        {practiceHistory.length > 0 ? (
+                          practiceHistory.map((entry) => (
+                            <button
+                              key={entry.attemptId}
+                              type="button"
+                              onClick={() => setLatestViewedPracticeAttemptId(entry.attemptId)}
+                              className={`lecture-practice-history-row ${
+                                latestViewedPracticeAttemptId === entry.attemptId ? "active" : ""
+                              }`}
+                            >
+                              <span>Attempt {entry.attemptNumber}</span>
+                              <span>{entry.totalScore}/{entry.maxScore}</span>
+                              <span>{Math.round(entry.percentage)}%</span>
+                            </button>
+                          ))
+                        ) : (
+                          <p className="ios-row-subtitle">No graded attempts yet.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="lecture-practice-feedback-list">
+                      {visiblePracticeAttempt.answers.map((answer, index) => (
+                        <div key={answer.id} className="lecture-practice-feedback-card">
+                          <div className="lecture-practice-card-header">
+                            <span>Question {index + 1}</span>
+                            <span>{answer.score ?? 0}/5</span>
+                          </div>
+                          <p className="lecture-practice-prompt">{answer.question?.prompt}</p>
+                          {answer.typed_answer ? (
+                            <p className="lecture-practice-feedback-copy">
+                              <strong>Your answer:</strong> {answer.typed_answer}
+                            </p>
+                          ) : null}
+                          <p className="lecture-practice-feedback-copy">
+                            <strong>Rationale:</strong> {answer.grading_rationale ?? "No feedback."}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="ios-row-subtitle">
+                    Start your first practice test to build score history and track improvement.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>

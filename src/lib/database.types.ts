@@ -241,6 +241,31 @@ export type Database = {
           updated_at?: string;
         };
       };
+      lecture_practice_test_assets: {
+        Row: {
+          lecture_id: string;
+          status: StudyAssetStatus;
+          error_message: string | null;
+          model_metadata: Json;
+          generated_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          lecture_id: string;
+          status?: StudyAssetStatus;
+          error_message?: string | null;
+          model_metadata?: Json;
+          generated_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: StudyAssetStatus;
+          error_message?: string | null;
+          model_metadata?: Json;
+          generated_at?: string;
+          updated_at?: string;
+        };
+      };
       lecture_study_sections: {
         Row: {
           id: string;
@@ -363,25 +388,28 @@ export type Database = {
         Row: {
           user_id: string;
           lecture_id: string;
-          active_study_view: "flashcards" | "quiz";
+          active_study_view: "flashcards" | "quiz" | "practice_test";
           flashcard_state: Json | null;
           quiz_state: Json | null;
+          practice_test_state: Json | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           user_id: string;
           lecture_id: string;
-          active_study_view?: "flashcards" | "quiz";
+          active_study_view?: "flashcards" | "quiz" | "practice_test";
           flashcard_state?: Json | null;
           quiz_state?: Json | null;
+          practice_test_state?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
-          active_study_view?: "flashcards" | "quiz";
+          active_study_view?: "flashcards" | "quiz" | "practice_test";
           flashcard_state?: Json | null;
           quiz_state?: Json | null;
+          practice_test_state?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -421,6 +449,134 @@ export type Database = {
           source_locator?: string | null;
         };
       };
+      practice_test_questions: {
+        Row: {
+          id: string;
+          lecture_id: string;
+          idx: number;
+          prompt: string;
+          answer_guide: string;
+          difficulty: FlashcardDifficulty;
+          source_locator: string | null;
+          source_unit_idx: number | null;
+          concept_key: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lecture_id: string;
+          idx: number;
+          prompt: string;
+          answer_guide: string;
+          difficulty: FlashcardDifficulty;
+          source_locator?: string | null;
+          source_unit_idx?: number | null;
+          concept_key?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          idx?: number;
+          prompt?: string;
+          answer_guide?: string;
+          difficulty?: FlashcardDifficulty;
+          source_locator?: string | null;
+          source_unit_idx?: number | null;
+          concept_key?: string | null;
+        };
+      };
+      practice_test_attempts: {
+        Row: {
+          id: string;
+          lecture_id: string;
+          user_id: string;
+          status: "in_progress" | "submitted" | "graded" | "failed";
+          question_count: number;
+          total_score: number | null;
+          max_score: number | null;
+          percentage: number | null;
+          graded_at: string | null;
+          model_metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          lecture_id: string;
+          user_id: string;
+          status?: "in_progress" | "submitted" | "graded" | "failed";
+          question_count: number;
+          total_score?: number | null;
+          max_score?: number | null;
+          percentage?: number | null;
+          graded_at?: string | null;
+          model_metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: "in_progress" | "submitted" | "graded" | "failed";
+          question_count?: number;
+          total_score?: number | null;
+          max_score?: number | null;
+          percentage?: number | null;
+          graded_at?: string | null;
+          model_metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      practice_test_attempt_answers: {
+        Row: {
+          id: string;
+          attempt_id: string;
+          practice_test_question_id: string;
+          idx: number;
+          typed_answer: string | null;
+          photo_path: string | null;
+          photo_mime_type: string | null;
+          declared_unknown: boolean;
+          score: number | null;
+          grading_rationale: string | null;
+          strengths: string | null;
+          missing_points: string | null;
+          expected_answer: string | null;
+          grading_confidence: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          attempt_id: string;
+          practice_test_question_id: string;
+          idx: number;
+          typed_answer?: string | null;
+          photo_path?: string | null;
+          photo_mime_type?: string | null;
+          declared_unknown?: boolean;
+          score?: number | null;
+          grading_rationale?: string | null;
+          strengths?: string | null;
+          missing_points?: string | null;
+          expected_answer?: string | null;
+          grading_confidence?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          typed_answer?: string | null;
+          photo_path?: string | null;
+          photo_mime_type?: string | null;
+          declared_unknown?: boolean;
+          score?: number | null;
+          grading_rationale?: string | null;
+          strengths?: string | null;
+          missing_points?: string | null;
+          expected_answer?: string | null;
+          grading_confidence?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -458,6 +614,8 @@ export type LectureStudyAssetRow =
   Database["public"]["Tables"]["lecture_study_assets"]["Row"];
 export type LectureQuizAssetRow =
   Database["public"]["Tables"]["lecture_quiz_assets"]["Row"];
+export type LecturePracticeTestAssetRow =
+  Database["public"]["Tables"]["lecture_practice_test_assets"]["Row"];
 export type LectureStudySectionRow =
   Database["public"]["Tables"]["lecture_study_sections"]["Row"];
 export type FlashcardRow = Database["public"]["Tables"]["flashcards"]["Row"];
@@ -466,3 +624,9 @@ export type FlashcardProgressRow =
 export type LectureStudySessionRow =
   Database["public"]["Tables"]["lecture_study_sessions"]["Row"];
 export type QuizQuestionRow = Database["public"]["Tables"]["quiz_questions"]["Row"];
+export type PracticeTestQuestionRow =
+  Database["public"]["Tables"]["practice_test_questions"]["Row"];
+export type PracticeTestAttemptRow =
+  Database["public"]["Tables"]["practice_test_attempts"]["Row"];
+export type PracticeTestAttemptAnswerRow =
+  Database["public"]["Tables"]["practice_test_attempt_answers"]["Row"];

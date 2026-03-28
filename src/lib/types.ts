@@ -5,11 +5,15 @@ import type {
   FlashcardRow,
   FlashcardProgressRow,
   LectureArtifactRow,
+  LecturePracticeTestAssetRow,
   LectureQuizAssetRow,
   LectureRow,
   LectureStudyAssetRow,
   LectureStudySessionRow,
   LectureStudySectionRow,
+  PracticeTestAttemptAnswerRow,
+  PracticeTestAttemptRow,
+  PracticeTestQuestionRow,
   ProfileRow,
   QuizQuestionRow,
   TranscriptSegmentRow,
@@ -24,10 +28,14 @@ export interface LectureDetail {
   artifact: LectureArtifactRow | null;
   studyAsset: LectureStudyAssetRow | null;
   quizAsset: LectureQuizAssetRow | null;
+  practiceTestAsset: LecturePracticeTestAssetRow | null;
   studySession: StudySession | null;
   studySections: StudySectionWithProgress[];
   flashcards: FlashcardWithCitations[];
   quizQuestions: QuizQuestionWithOptions[];
+  practiceTestQuestions: PracticeTestQuestion[];
+  practiceTestAttempts: PracticeTestAttemptWithAnswers[];
+  practiceTestHistorySummary: PracticeTestHistorySummary;
   transcript: TranscriptSegmentRow[];
   chatMessages: ChatMessageWithCitations[];
   audioUrl: string | null;
@@ -44,6 +52,35 @@ export interface FlashcardWithCitations extends Omit<FlashcardRow, "citations_js
 
 export interface QuizQuestionWithOptions extends Omit<QuizQuestionRow, "options_json"> {
   options: string[];
+}
+
+export type PracticeTestQuestion = PracticeTestQuestionRow;
+
+export interface PracticeTestAttemptAnswer extends PracticeTestAttemptAnswerRow {
+  question: PracticeTestQuestion | null;
+  photoUrl: string | null;
+}
+
+export interface PracticeTestAttemptWithAnswers extends PracticeTestAttemptRow {
+  answers: PracticeTestAttemptAnswer[];
+}
+
+export interface PracticeTestHistoryEntry {
+  attemptId: string;
+  attemptNumber: number;
+  createdAt: string;
+  percentage: number;
+  totalScore: number;
+  maxScore: number;
+}
+
+export interface PracticeTestHistorySummary {
+  attemptCount: number;
+  averagePercentage: number | null;
+  bestPercentage: number | null;
+  lowestPercentage: number | null;
+  latestPercentage: number | null;
+  scoresByAttempt: PracticeTestHistoryEntry[];
 }
 
 export interface PersistedFlashcardSessionResult {
@@ -82,10 +119,28 @@ export interface PersistedQuizSessionState {
   optionOrders: Record<string, number[]>;
 }
 
+export interface PersistedPracticeTestPhotoDraft {
+  fileName: string;
+  previewUrl: string | null;
+  uploadedPath: string | null;
+  mimeType: string | null;
+}
+
+export interface PersistedPracticeTestSessionState {
+  currentAttemptId: string | null;
+  attemptQuestionIds: string[];
+  textAnswers: Record<string, string>;
+  photoDrafts: Record<string, PersistedPracticeTestPhotoDraft>;
+  unknownQuestionIds: string[];
+  latestViewedAttemptId: string | null;
+  submittedAt: string | null;
+}
+
 export interface StudySession
-  extends Omit<LectureStudySessionRow, "flashcard_state" | "quiz_state"> {
+  extends Omit<LectureStudySessionRow, "flashcard_state" | "quiz_state" | "practice_test_state"> {
   flashcard_state: PersistedFlashcardSessionState | null;
   quiz_state: PersistedQuizSessionState | null;
+  practice_test_state: PersistedPracticeTestSessionState | null;
 }
 
 export interface StudySectionWithProgress extends LectureStudySectionRow {

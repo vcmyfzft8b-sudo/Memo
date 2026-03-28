@@ -1,4 +1,5 @@
 import {
+  PRACTICE_TEST_ANSWER_BUCKET,
   STORAGE_BUCKET,
   SUPPORTED_AUDIO_MIME_TYPES,
 } from "@/lib/constants";
@@ -32,6 +33,12 @@ const extensionMap = new Map<string, string>([
   ["audio/flac", "flac"],
   ["audio/aiff", "aiff"],
   ["audio/x-caf", "caf"],
+  ["image/jpeg", "jpg"],
+  ["image/jpg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/heic", "heic"],
+  ["image/heif", "heif"],
 ]);
 
 const extensionToMimeTypeMap = new Map<string, string>([
@@ -147,4 +154,29 @@ export function buildLectureChunkStoragePath(params: {
 
 export function buildStorageObjectUrl(path: string) {
   return `${STORAGE_BUCKET}/${path}`;
+}
+
+export function getImageExtensionForMimeType(mimeType: string) {
+  const normalized = normalizeMimeType(mimeType);
+
+  return extensionMap.get(normalized) ?? "jpg";
+}
+
+export function buildPracticeTestAnswerStoragePath(params: {
+  userId: string;
+  lectureId: string;
+  attemptId: string;
+  questionIndex: number;
+  mimeType: string;
+}) {
+  const ext = getImageExtensionForMimeType(params.mimeType);
+  const timestamp = Date.now();
+
+  return `${params.userId}/${params.lectureId}/${params.attemptId}/${String(
+    params.questionIndex,
+  ).padStart(2, "0")}-${timestamp}.${ext}`;
+}
+
+export function buildPracticeTestStorageObjectUrl(path: string) {
+  return `${PRACTICE_TEST_ANSWER_BUCKET}/${path}`;
 }
