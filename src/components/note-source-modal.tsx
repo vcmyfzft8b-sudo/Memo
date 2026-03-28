@@ -3,10 +3,8 @@
 import {
   Camera,
   ChevronDown,
-  ChevronLeft,
   ChevronsUpDown,
   FileText,
-  Info,
   Loader2,
   Mic,
   Upload,
@@ -46,36 +44,11 @@ type AudioSource = {
   origin: "upload" | "recording";
 };
 
-type UploadRecordingType = "lecture" | "meeting" | "other";
-
-const MODE_COPY: Record<
-  NoteSourceMode,
-  {
-    title: string;
-    eyebrow: string;
-    description: string;
-  }
-> = {
-  record: {
-    title: "Record audio",
-    eyebrow: "Live capture",
-    description: "Start recording to create a note from your lecture in one pass.",
-  },
-  upload: {
-    title: "Upload audio",
-    eyebrow: "Import file",
-    description: "Bring in an existing lecture recording and turn it into notes.",
-  },
-  text: {
-    title: "Upload text or PDF",
-    eyebrow: "Text import",
-    description: "Paste text, scan pages from your phone, or import a document.",
-  },
-  link: {
-    title: "Web link",
-    eyebrow: "Link import",
-    description: "Paste a webpage or media link and turn it into study notes.",
-  },
+const MODE_COPY: Record<NoteSourceMode, { title: string }> = {
+  record: { title: "Record audio" },
+  upload: { title: "Upload audio" },
+  text: { title: "Upload text or PDF" },
+  link: { title: "Web link" },
 };
 
 function pickRecorderMimeType() {
@@ -173,9 +146,6 @@ export function NoteSourceModal({
   const [error, setError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [uploadRecordingType, setUploadRecordingType] =
-    useState<UploadRecordingType>("lecture");
-  const [hasMultipleSpeakers, setHasMultipleSpeakers] = useState(false);
 
   useEffect(() => {
     if (mode) {
@@ -263,8 +233,6 @@ export function NoteSourceModal({
     setError(null);
     setBusyLabel(null);
     setIsCancelling(false);
-    setUploadRecordingType("lecture");
-    setHasMultipleSpeakers(false);
     activeRequestControllerRef.current = null;
     createdLectureIdRef.current = null;
     cancelRequestedRef.current = false;
@@ -828,9 +796,6 @@ export function NoteSourceModal({
   function renderFolderField() {
     return (
       <div className="note-source-panel-block">
-        <label className="note-source-panel-label" htmlFor="note-folder-select">
-          Folder
-        </label>
         <div className="note-source-panel-select-wrap">
           <select
             id="note-folder-select"
@@ -838,6 +803,9 @@ export function NoteSourceModal({
             onChange={(event) => setSelectedFolderId(event.target.value || null)}
             className="note-source-panel-select"
           >
+            <option value="" disabled>
+              Folder
+            </option>
             <option value="">All notes</option>
             {availableFolders.map((folder) => (
               <option key={folder.id} value={folder.id}>
@@ -851,12 +819,9 @@ export function NoteSourceModal({
     );
   }
 
-  function renderLanguageField(label: string) {
+  function renderLanguageField() {
     return (
       <div className="note-source-panel-block">
-        <label className="note-source-panel-label" htmlFor={`note-language-${selectedMode}`}>
-          {label}
-        </label>
         <div className="note-source-panel-select-wrap">
           <select
             id={`note-language-${selectedMode}`}
@@ -864,6 +829,9 @@ export function NoteSourceModal({
             onChange={(event) => setLanguageHint(event.target.value)}
             className="note-source-panel-select"
           >
+            <option value="" disabled>
+              Language
+            </option>
             {NOTE_LANGUAGE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -879,13 +847,8 @@ export function NoteSourceModal({
   function renderHeader() {
     return (
       <div className="note-source-panel-header">
-        <button type="button" className="note-source-panel-icon-button ghost" onClick={onClose}>
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <div className="note-source-panel-header-copy">
-          <span className="note-source-panel-eyebrow">{MODE_COPY[selectedMode].eyebrow}</span>
-          <h2 className="note-source-panel-title">{modeTitle(selectedMode)}</h2>
-        </div>
+        <div />
+        <h2 className="note-source-panel-title">{modeTitle(selectedMode)}</h2>
         <button
           type="button"
           className="note-source-panel-icon-button"
@@ -930,46 +893,35 @@ export function NoteSourceModal({
     return (
       <>
         <div className="note-source-record-hero">
-          <div className="note-source-record-hero-icon">
-            <Mic className="h-12 w-12" />
+          <div className="note-source-record-hero-graphic" aria-hidden="true">
+            <div className="note-source-record-wave">
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+            <div className="note-source-record-hero-icon">
+              <Mic className="h-12 w-12" />
+            </div>
           </div>
           <h3>Start recording to create a note</h3>
-          <p>Tap below to capture your lecture, then we&apos;ll turn it into organized notes.</p>
-        </div>
-
-        <div className="note-source-record-grid">
-          {renderLanguageField("Language")}
-          {renderFolderField()}
         </div>
 
         {preparedRecording ? (
           <div className="note-source-panel-card">
-            <div className="note-source-panel-card-header">
-              <span className="note-source-panel-card-title">Ready to upload</span>
-              <span className="note-source-panel-card-meta">
-                {formatTimestamp(preparedRecording.durationSeconds * 1000)}
-              </span>
-            </div>
             <p className="note-source-panel-card-value">{preparedRecording.file.name}</p>
+            <p className="note-source-panel-card-meta">
+              {formatTimestamp(preparedRecording.durationSeconds * 1000)}
+            </p>
           </div>
         ) : null}
 
         {isRecording ? (
           <div className="note-source-panel-card record-live">
-            <div className="note-source-panel-card-header">
-              <span className="note-source-panel-card-title">Recording now</span>
-              <span className="note-source-panel-live-pill">Live</span>
-            </div>
-            <p className="note-source-panel-card-value">
-              {formatTimestamp(elapsedSeconds * 1000)}
-            </p>
+            <p className="note-source-panel-card-value">{formatTimestamp(elapsedSeconds * 1000)}</p>
           </div>
         ) : null}
-
-        <p className="note-source-record-legal">
-          By recording, you confirm you have permission to record in accordance with our Privacy
-          Policy and Terms of Use.
-        </p>
 
         {isRecording
           ? renderFooterActions("Stop Recording", stopRecording, false)
@@ -1006,11 +958,6 @@ export function NoteSourceModal({
   function renderUploadMode() {
     return (
       <>
-        <div className="note-source-panel-tip">
-          <Info className="h-5 w-5" />
-          <span>How to import from Voice Memos</span>
-        </div>
-
         <input
           ref={uploadInputRef}
           type="file"
@@ -1021,7 +968,6 @@ export function NoteSourceModal({
 
         <div className="note-source-panel-grid">
           <div className="note-source-panel-block">
-            <span className="note-source-panel-label">Audio file</span>
             <button
               type="button"
               className="note-source-panel-picker"
@@ -1034,52 +980,16 @@ export function NoteSourceModal({
                 <span className="note-source-panel-picker-meta">
                   {preparedUpload
                     ? formatTimestamp(preparedUpload.durationSeconds * 1000)
-                    : "MP3, M4A, WAV, or WEBM"}
+                    : "Audio file"}
                 </span>
               </span>
               <Upload className="h-5 w-5" />
             </button>
           </div>
 
-          {renderLanguageField("Audio language")}
+          {renderLanguageField()}
           {renderFolderField()}
         </div>
-
-        <div className="note-source-panel-block">
-          <span className="note-source-panel-label">Recording type</span>
-          <div className="note-source-toggle-group">
-            {(["lecture", "meeting", "other"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={`note-source-toggle-chip ${
-                  uploadRecordingType === value ? "active" : ""
-                }`}
-                onClick={() => setUploadRecordingType(value)}
-              >
-                {value[0]?.toUpperCase()}
-                {value.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <label className="note-source-switch-row">
-          <span>
-            <span className="note-source-switch-title">Multiple people speaking?</span>
-            <span className="note-source-switch-copy">
-              Helps keep the upload setup aligned with your lecture recording style.
-            </span>
-          </span>
-          <span className={`note-source-switch ${hasMultipleSpeakers ? "active" : ""}`}>
-            <input
-              type="checkbox"
-              checked={hasMultipleSpeakers}
-              onChange={(event) => setHasMultipleSpeakers(event.target.checked)}
-            />
-            <span className="note-source-switch-thumb" />
-          </span>
-        </label>
 
         {renderFooterActions("Create notes", () => void createAudioLecture(), !preparedUpload)}
       </>
@@ -1106,14 +1016,11 @@ export function NoteSourceModal({
         />
 
         <div className="note-source-panel-grid compact">
-          {renderLanguageField("Language")}
+          {renderLanguageField()}
           {renderFolderField()}
         </div>
 
         <div className="note-source-panel-block grow">
-          <label className="note-source-panel-label" htmlFor="note-text-input">
-            Text
-          </label>
           <textarea
             id="note-text-input"
             value={textValue}
@@ -1125,16 +1032,12 @@ export function NoteSourceModal({
               setTextValue(event.target.value);
             }}
             className="note-source-panel-textarea"
-            placeholder="Paste lecture notes, article text, or scanned content here..."
+            placeholder="Paste text..."
           />
         </div>
 
         {pdfSource ? (
           <div className="note-source-panel-card">
-            <div className="note-source-panel-card-header">
-              <span className="note-source-panel-card-title">Imported document</span>
-              <span className="note-source-panel-card-meta">Ready</span>
-            </div>
             <p className="note-source-panel-card-value">{pdfSource.name}</p>
           </div>
         ) : null}
@@ -1180,14 +1083,11 @@ export function NoteSourceModal({
     return (
       <>
         <div className="note-source-panel-grid compact">
-          {renderLanguageField("Language")}
+          {renderLanguageField()}
           {renderFolderField()}
         </div>
 
         <div className="note-source-panel-block">
-          <label className="note-source-panel-label" htmlFor="note-link-input">
-            Paste a web link
-          </label>
           <input
             id="note-link-input"
             value={linkValue}
@@ -1195,9 +1095,6 @@ export function NoteSourceModal({
             className="note-source-panel-input"
             placeholder="https://example.com"
           />
-          <p className="note-source-panel-helper">
-            Works with websites, audio, video, articles, and other public pages.
-          </p>
         </div>
 
         {renderFooterActions(
@@ -1228,8 +1125,6 @@ export function NoteSourceModal({
             {renderHeader()}
 
             <div className="note-source-panel-scroll">
-              <p className="note-source-panel-description">{MODE_COPY[selectedMode].description}</p>
-
               {selectedMode === "record" ? renderRecordMode() : null}
               {selectedMode === "upload" ? renderUploadMode() : null}
               {selectedMode === "text" ? renderTextMode() : null}
