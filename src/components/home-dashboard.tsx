@@ -27,29 +27,29 @@ import { formatCalendarDate } from "@/lib/utils";
 const QUICK_ACTIONS = [
   {
     id: "record" as const,
-    label: "Record lecture",
-    detail: "Start in one tap",
+    label: "Record audio",
+    detail: "Start live capture",
     icon: "🎙️",
     accent: "record",
   },
   {
     id: "upload" as const,
     label: "Upload audio",
-    detail: "MP3, M4A, WAV, or WEBM",
+    detail: "Import from your files",
     icon: "📤",
     accent: "default",
   },
   {
     id: "text" as const,
-    label: "Paste text or PDF",
-    detail: "Turn source material into structured notes",
+    label: "Upload text or PDF",
+    detail: "Paste, scan, or import",
     icon: "📄",
     accent: "default",
   },
   {
     id: "link" as const,
-    label: "Add link",
-    detail: "Web article or source",
+    label: "Web link",
+    detail: "Website, video, or source",
     icon: "🔗",
     accent: "default",
   },
@@ -428,7 +428,15 @@ export function HomeDashboard({
             <h2 className="dashboard-section-title">New note</h2>
           </div>
 
-          <div className="note-action-grid">
+          <div className="note-action-panel">
+            <div className="note-action-panel-header">
+              <p className="note-action-panel-title">Choose how you want to create it</p>
+              <p className="note-action-panel-copy">
+                Pick a source, then finish the setup in the next screen.
+              </p>
+            </div>
+
+            <div className="note-action-grid">
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.id}
@@ -450,6 +458,7 @@ export function HomeDashboard({
                 <EmojiIcon className="note-action-card-chevron" symbol="›" size="1.1rem" />
               </button>
             ))}
+            </div>
           </div>
         </section>
 
@@ -581,7 +590,12 @@ export function HomeDashboard({
         </section>
       </div>
 
-      <NoteSourceModal mode={activeModal} open={Boolean(activeModal)} onClose={closeModal} />
+      <NoteSourceModal
+        mode={activeModal}
+        open={Boolean(activeModal)}
+        onClose={closeModal}
+        userId={userId}
+      />
 
       {renameTarget ? (
         <>
