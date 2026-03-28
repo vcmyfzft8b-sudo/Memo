@@ -98,6 +98,7 @@ Source input:
 ${params.input}`,
           config: {
             responseMimeType: "application/json",
+            responseSchema: z.toJSONSchema(params.schema),
             maxOutputTokens,
           },
         }),
@@ -173,6 +174,7 @@ ${JSON.stringify(z.toJSONSchema(params.schema))}`,
             ],
             config: {
               responseMimeType: "application/json",
+              responseSchema: z.toJSONSchema(params.schema),
               maxOutputTokens,
             },
           }),
