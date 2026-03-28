@@ -1,13 +1,22 @@
 "use client";
 
 import { Loader2, Mic, PauseCircle, UploadCloud, Waves } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createAudioLectureWithProcessingChunks } from "@/lib/audio-lecture-upload";
 import { AUDIO_FILE_INPUT_ACCEPT, MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS } from "@/lib/constants";
+import {
+  getNativeRecordingResumeState,
+  getNativeRecordingElapsedSeconds,
+  startNativeLectureRecording,
+  stopNativeLectureRecording,
+  supportsNativeLectureRecording,
+} from "@/lib/native-lecture-recorder";
 import { getExtensionForMimeType, normalizeMimeType } from "@/lib/storage";
 import { cn, formatTimestamp } from "@/lib/utils";
+import { LiveAudioWave } from "@/components/live-audio-wave";
+import { useWakeLock } from "@/components/use-wake-lock";
 
 type CaptureSource = {
   file: File;
@@ -92,15 +101,49 @@ export function CaptureStudio({
   const [error, setError] = useState<string | null>(null);
   const [recordingSupported, setRecordingSupported] = useState<boolean | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [visualizerStream, setVisualizerStream] = useState<MediaStream | null>(null);
   const [stage, setStage] = useState<
     "idle" | "creating" | "uploading" | "finalizing"
   >("idle");
   const [isCancelling, setIsCancelling] = useState(false);
 
   const recordingMimeType = useMemo(() => pickRecorderMimeType(), []);
+  useWakeLock(isRecording);
+
+  const clearElapsedTimer = useCallback(() => {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const startElapsedTimer = useCallback((native: boolean) => {
+    clearElapsedTimer();
+
+    if (native) {
+      setElapsedSeconds(getNativeRecordingElapsedSeconds());
+      timerRef.current = window.setInterval(() => {
+        const nextValue = getNativeRecordingElapsedSeconds();
+        elapsedRef.current = nextValue;
+        setElapsedSeconds(nextValue);
+      }, 1000);
+      return;
+    }
+
+    timerRef.current = window.setInterval(() => {
+      setElapsedSeconds((value) => {
+        const nextValue = value + 1;
+        elapsedRef.current = nextValue;
+        return nextValue;
+      });
+    }, 1000);
+  }, [clearElapsedTimer]);
 
   useEffect(() => {
-    setRecordingSupported(typeof window !== "undefined" && "MediaRecorder" in window);
+    setRecordingSupported(
+      typeof window !== "undefined" &&
+        (supportsNativeLectureRecording() || "MediaRecorder" in window),
+    );
   }, []);
 
   useEffect(() => {
@@ -108,17 +151,48 @@ export function CaptureStudio({
   }, [initialMode]);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        window.clearInterval(timerRef.current);
+    if (typeof window === "undefined" || !supportsNativeLectureRecording()) {
+      return;
+    }
+
+    const restore = async () => {
+      const nextState = await getNativeRecordingResumeState();
+
+      if (!nextState.isRecording) {
+        return;
       }
+
+      elapsedRef.current = nextState.elapsedSeconds;
+      setElapsedSeconds(nextState.elapsedSeconds);
+      setIsRecording(true);
+      startElapsedTimer(true);
+    };
+
+    void restore();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      void restore();
+    };
+
+    window.addEventListener("focus", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearElapsedTimer();
 
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
+      setVisualizerStream(null);
       activeRequestControllerRef.current?.abort();
+      window.removeEventListener("focus", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [clearElapsedTimer, startElapsedTimer]);
 
   useEffect(() => {
     return () => {
@@ -187,8 +261,20 @@ export function CaptureStudio({
 
     try {
       setCaptureMode("record");
+
+      if (supportsNativeLectureRecording()) {
+        await startNativeLectureRecording();
+        setElapsedSeconds(0);
+        elapsedRef.current = 0;
+        setIsRecording(true);
+        setError(null);
+        startElapsedTimer(true);
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+      setVisualizerStream(stream);
       chunksRef.current = [];
 
       const recorder = new MediaRecorder(stream, recordingMimeType ? { mimeType: recordingMimeType } : undefined);
@@ -225,6 +311,7 @@ export function CaptureStudio({
           streamRef.current.getTracks().forEach((track) => track.stop());
           streamRef.current = null;
         }
+        setVisualizerStream(null);
       };
 
       recorder.start();
@@ -232,13 +319,7 @@ export function CaptureStudio({
       elapsedRef.current = 0;
       setIsRecording(true);
       setError(null);
-      timerRef.current = window.setInterval(() => {
-        setElapsedSeconds((value) => {
-          const nextValue = value + 1;
-          elapsedRef.current = nextValue;
-          return nextValue;
-        });
-      }, 1000);
+      startElapsedTimer(false);
     } catch (recordError) {
       setError(
         recordError instanceof Error
@@ -248,15 +329,35 @@ export function CaptureStudio({
     }
   }
 
-  function stopRecording() {
+  async function stopRecording() {
+    if (supportsNativeLectureRecording()) {
+      try {
+        const nativeSource = await stopNativeLectureRecording();
+
+        await setNewSource({
+          file: nativeSource.file,
+          durationSeconds: nativeSource.durationSeconds,
+          previewUrl: nativeSource.previewUrl,
+          origin: "recording",
+        });
+      } catch (stopError) {
+        setError(
+          stopError instanceof Error
+            ? stopError.message
+            : "Recording could not be stopped.",
+        );
+      } finally {
+        setIsRecording(false);
+        clearElapsedTimer();
+      }
+      return;
+    }
+
     recorderRef.current?.stop();
     recorderRef.current = null;
     setIsRecording(false);
-
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    setVisualizerStream(null);
+    clearElapsedTimer();
   }
 
   async function handleSubmit() {
@@ -425,7 +526,7 @@ export function CaptureStudio({
             {captureMode === "record" ? (
               <button
                 type="button"
-                onClick={isRecording ? stopRecording : startRecording}
+                onClick={() => void (isRecording ? stopRecording() : startRecording())}
                 className={cn(
                   "flex min-h-64 w-full flex-col justify-between rounded-[30px] border p-7 text-left transition",
                   isRecording
@@ -457,7 +558,25 @@ export function CaptureStudio({
                   <p className="mt-2 text-sm leading-7 text-stone-500">
                     {isRecording
                       ? `Recording time: ${formatTimestamp(elapsedSeconds * 1000)}`
-                      : "The microphone stays on until you stop it."}
+                      : "The microphone stays on while the page stays open."}
+                  </p>
+                </div>
+
+                <div
+                  className={cn(
+                    "rounded-[24px] border px-4 py-4 transition",
+                    isRecording
+                      ? "border-rose-200/80 bg-gradient-to-br from-rose-100 via-white to-rose-50 text-rose-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                      : "border-stone-200 bg-stone-50 text-stone-300",
+                  )}
+                >
+                  <LiveAudioWave
+                    stream={visualizerStream}
+                    active={isRecording}
+                    className="mx-auto max-w-[15rem]"
+                  />
+                  <p className="mt-3 text-center text-xs font-medium tracking-[0.18em] text-current/80 uppercase">
+                    {isRecording ? "Live sound" : "Waveform preview"}
                   </p>
                 </div>
               </button>

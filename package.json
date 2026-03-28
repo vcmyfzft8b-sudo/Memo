@@ -11,9 +11,17 @@
     "dev:turbopack": "NODE_PATH=./node_modules next dev",
     "build": "NODE_PATH=./node_modules next build",
     "start": "NODE_PATH=./node_modules next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "mobile:sync": "npx cap sync",
+    "mobile:ios": "npx cap open ios",
+    "mobile:android": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/ios": "^8.3.0",
+    "@capgo/capacitor-audio-recorder": "^8.0.12",
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
