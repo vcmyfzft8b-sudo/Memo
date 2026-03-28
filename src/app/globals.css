@@ -1324,7 +1324,9 @@ select:disabled {
 
 .note-source-modal-body-loading {
   min-height: 20rem;
+  align-content: center;
   align-items: center;
+  padding-bottom: 3rem;
 }
 
 .note-source-select-wrap {

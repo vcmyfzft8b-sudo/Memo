@@ -321,7 +321,7 @@ export function NoteSourceModal({
     await deleteCreatedLecture();
     setBusyLabel(null);
     setIsCancelling(false);
-    setError("Creation cancelled.");
+    setError(null);
   }, [deleteCreatedLecture]);
 
   const requestClose = useCallback(() => {
