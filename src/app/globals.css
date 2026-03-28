@@ -3238,9 +3238,12 @@ select:disabled {
 .lecture-study-mode-switch .ios-segment {
   min-height: 2.35rem;
   border-radius: 10px;
-  padding: 0 0.85rem;
-  font-size: 0.9rem;
+  min-width: 0;
+  padding: 0 0.55rem;
+  font-size: clamp(0.78rem, 2.7vw, 0.9rem);
   font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .lecture-study-overview {
@@ -6284,7 +6287,7 @@ select:disabled {
   }
 
   .lecture-study-mode-switch {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .lecture-study-overview {

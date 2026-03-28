@@ -88,6 +88,10 @@ function toErrorMessage(error: unknown) {
   return "Unknown practice test error.";
 }
 
+export function describePracticeTestError(error: unknown) {
+  return toErrorMessage(error);
+}
+
 function toMetadataRecord(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {} as Record<string, unknown>;

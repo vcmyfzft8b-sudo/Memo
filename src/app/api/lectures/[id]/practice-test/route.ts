@@ -2,7 +2,10 @@ import { after, NextResponse } from "next/server";
 
 import { ensureUserOwnsLecture, getLectureDetailForUser } from "@/lib/lectures";
 import { enqueueLecturePracticeTestGeneration } from "@/lib/jobs";
-import { queueLecturePracticeTestGeneration } from "@/lib/practice-test";
+import {
+  describePracticeTestError,
+  queueLecturePracticeTestGeneration,
+} from "@/lib/practice-test";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { routeIdParamSchema } from "@/lib/validation";
@@ -109,10 +112,7 @@ export async function POST(
   } catch (error) {
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Practice-test generation could not be queued.",
+        error: describePracticeTestError(error),
       },
       { status: 500 },
     );

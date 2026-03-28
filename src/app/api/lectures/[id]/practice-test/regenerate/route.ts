@@ -2,7 +2,10 @@ import { after, NextResponse } from "next/server";
 
 import { ensureUserOwnsLecture } from "@/lib/lectures";
 import { enqueueLecturePracticeTestGeneration } from "@/lib/jobs";
-import { queueLecturePracticeTestGeneration } from "@/lib/practice-test";
+import {
+  describePracticeTestError,
+  queueLecturePracticeTestGeneration,
+} from "@/lib/practice-test";
 import { enforceRateLimit, rateLimitPresets } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { routeIdParamSchema } from "@/lib/validation";
@@ -48,7 +51,16 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await queueLecturePracticeTestGeneration(parsedParams.data.id);
+  try {
+    await queueLecturePracticeTestGeneration(parsedParams.data.id);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: describePracticeTestError(error),
+      },
+      { status: 500 },
+    );
+  }
 
   after(async () => {
     await enqueueLecturePracticeTestGeneration(parsedParams.data.id, true);
