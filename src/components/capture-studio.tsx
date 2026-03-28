@@ -1,22 +1,14 @@
 "use client";
 
 import { Loader2, Mic, PauseCircle, UploadCloud, Waves } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createAudioLectureWithProcessingChunks } from "@/lib/audio-lecture-upload";
 import { AUDIO_FILE_INPUT_ACCEPT, MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS } from "@/lib/constants";
-import {
-  getNativeRecordingResumeState,
-  getNativeRecordingElapsedSeconds,
-  startNativeLectureRecording,
-  stopNativeLectureRecording,
-  supportsNativeLectureRecording,
-} from "@/lib/native-lecture-recorder";
 import { getExtensionForMimeType, normalizeMimeType } from "@/lib/storage";
 import { cn, formatTimestamp } from "@/lib/utils";
 import { LiveAudioWave } from "@/components/live-audio-wave";
-import { useWakeLock } from "@/components/use-wake-lock";
 
 type CaptureSource = {
   file: File;
@@ -108,42 +100,9 @@ export function CaptureStudio({
   const [isCancelling, setIsCancelling] = useState(false);
 
   const recordingMimeType = useMemo(() => pickRecorderMimeType(), []);
-  useWakeLock(isRecording);
-
-  const clearElapsedTimer = useCallback(() => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const startElapsedTimer = useCallback((native: boolean) => {
-    clearElapsedTimer();
-
-    if (native) {
-      setElapsedSeconds(getNativeRecordingElapsedSeconds());
-      timerRef.current = window.setInterval(() => {
-        const nextValue = getNativeRecordingElapsedSeconds();
-        elapsedRef.current = nextValue;
-        setElapsedSeconds(nextValue);
-      }, 1000);
-      return;
-    }
-
-    timerRef.current = window.setInterval(() => {
-      setElapsedSeconds((value) => {
-        const nextValue = value + 1;
-        elapsedRef.current = nextValue;
-        return nextValue;
-      });
-    }, 1000);
-  }, [clearElapsedTimer]);
 
   useEffect(() => {
-    setRecordingSupported(
-      typeof window !== "undefined" &&
-        (supportsNativeLectureRecording() || "MediaRecorder" in window),
-    );
+    setRecordingSupported(typeof window !== "undefined" && "MediaRecorder" in window);
   }, []);
 
   useEffect(() => {
@@ -151,48 +110,18 @@ export function CaptureStudio({
   }, [initialMode]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !supportsNativeLectureRecording()) {
-      return;
-    }
-
-    const restore = async () => {
-      const nextState = await getNativeRecordingResumeState();
-
-      if (!nextState.isRecording) {
-        return;
-      }
-
-      elapsedRef.current = nextState.elapsedSeconds;
-      setElapsedSeconds(nextState.elapsedSeconds);
-      setIsRecording(true);
-      startElapsedTimer(true);
-    };
-
-    void restore();
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-
-      void restore();
-    };
-
-    window.addEventListener("focus", handleVisibilityChange);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
     return () => {
-      clearElapsedTimer();
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+      }
 
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
       setVisualizerStream(null);
       activeRequestControllerRef.current?.abort();
-      window.removeEventListener("focus", handleVisibilityChange);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [clearElapsedTimer, startElapsedTimer]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -261,17 +190,6 @@ export function CaptureStudio({
 
     try {
       setCaptureMode("record");
-
-      if (supportsNativeLectureRecording()) {
-        await startNativeLectureRecording();
-        setElapsedSeconds(0);
-        elapsedRef.current = 0;
-        setIsRecording(true);
-        setError(null);
-        startElapsedTimer(true);
-        return;
-      }
-
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       setVisualizerStream(stream);
@@ -319,7 +237,13 @@ export function CaptureStudio({
       elapsedRef.current = 0;
       setIsRecording(true);
       setError(null);
-      startElapsedTimer(false);
+      timerRef.current = window.setInterval(() => {
+        setElapsedSeconds((value) => {
+          const nextValue = value + 1;
+          elapsedRef.current = nextValue;
+          return nextValue;
+        });
+      }, 1000);
     } catch (recordError) {
       setError(
         recordError instanceof Error
@@ -330,34 +254,15 @@ export function CaptureStudio({
   }
 
   async function stopRecording() {
-    if (supportsNativeLectureRecording()) {
-      try {
-        const nativeSource = await stopNativeLectureRecording();
-
-        await setNewSource({
-          file: nativeSource.file,
-          durationSeconds: nativeSource.durationSeconds,
-          previewUrl: nativeSource.previewUrl,
-          origin: "recording",
-        });
-      } catch (stopError) {
-        setError(
-          stopError instanceof Error
-            ? stopError.message
-            : "Recording could not be stopped.",
-        );
-      } finally {
-        setIsRecording(false);
-        clearElapsedTimer();
-      }
-      return;
-    }
-
     recorderRef.current?.stop();
     recorderRef.current = null;
     setIsRecording(false);
     setVisualizerStream(null);
-    clearElapsedTimer();
+
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   }
 
   async function handleSubmit() {

@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 
 import { EmojiIcon } from "@/components/emoji-icon";
 import { LiveAudioWave } from "@/components/live-audio-wave";
-import { useWakeLock } from "@/components/use-wake-lock";
 import { createAudioLectureWithProcessingChunks } from "@/lib/audio-lecture-upload";
 import {
   AUDIO_FILE_INPUT_ACCEPT,
@@ -25,13 +24,6 @@ import {
   isSupportedDocumentFile,
 } from "@/lib/document-files";
 import { NOTE_LANGUAGE_OPTIONS } from "@/lib/languages";
-import {
-  getNativeRecordingElapsedSeconds,
-  getNativeRecordingResumeState,
-  startNativeLectureRecording,
-  stopNativeLectureRecording,
-  supportsNativeLectureRecording,
-} from "@/lib/native-lecture-recorder";
 import { getExtensionForMimeType, normalizeMimeType } from "@/lib/storage";
 import { formatTimestamp } from "@/lib/utils";
 
@@ -143,7 +135,7 @@ export function NoteSourceModal({
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
-  const stopRecordingRef = useRef<() => Promise<void>>(async () => undefined);
+  const requestCloseRef = useRef<() => void>(() => undefined);
   const activeRequestControllerRef = useRef<AbortController | null>(null);
   const createdLectureIdRef = useRef<string | null>(null);
   const cancelRequestedRef = useRef(false);
@@ -166,39 +158,6 @@ export function NoteSourceModal({
   const [textEditorKeyboardOffset, setTextEditorKeyboardOffset] = useState(0);
   const [scannedFileName, setScannedFileName] = useState<string | null>(null);
   const [visualizerStream, setVisualizerStream] = useState<MediaStream | null>(null);
-  useWakeLock(isRecording);
-
-  const clearElapsedTimer = useCallback(() => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const startElapsedTimer = useCallback(
-    (native: boolean) => {
-      clearElapsedTimer();
-
-      if (native) {
-        setElapsedSeconds(getNativeRecordingElapsedSeconds());
-        timerRef.current = window.setInterval(() => {
-          const nextValue = getNativeRecordingElapsedSeconds();
-          elapsedRef.current = nextValue;
-          setElapsedSeconds(nextValue);
-        }, 1000);
-        return;
-      }
-
-      timerRef.current = window.setInterval(() => {
-        setElapsedSeconds((value) => {
-          const nextValue = value + 1;
-          elapsedRef.current = nextValue;
-          return nextValue;
-        });
-      }, 1000);
-    },
-    [clearElapsedTimer],
-  );
 
   useEffect(() => {
     if (mode) {
@@ -285,7 +244,10 @@ export function NoteSourceModal({
   }, []);
 
   const resetState = useCallback(() => {
-    clearElapsedTimer();
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -311,7 +273,7 @@ export function NoteSourceModal({
     activeRequestControllerRef.current = null;
     createdLectureIdRef.current = null;
     cancelRequestedRef.current = false;
-  }, [clearAudioSource, clearElapsedTimer]);
+  }, [clearAudioSource]);
 
   const deleteCreatedLecture = useCallback(async () => {
     const lectureId = createdLectureIdRef.current;
@@ -366,68 +328,9 @@ export function NoteSourceModal({
     setError(null);
   }, [deleteCreatedLecture]);
 
-  const requestClose = useCallback(() => {
-    if (isTextEditorOpen) {
-      setIsTextEditorOpen(false);
-      return;
-    }
-
-    if (isRecording) {
-      void stopRecordingRef.current();
-      return;
-    }
-
-    if (busyLabel) {
-      void handleCancelBusyAction();
-      return;
-    }
-
-    onClose();
-  }, [busyLabel, handleCancelBusyAction, isRecording, isTextEditorOpen, onClose]);
-
   useEffect(() => {
-    setRecordingSupported(
-      typeof window !== "undefined" &&
-        (supportsNativeLectureRecording() || "MediaRecorder" in window),
-    );
+    setRecordingSupported(typeof window !== "undefined" && "MediaRecorder" in window);
   }, []);
-
-  useEffect(() => {
-    if (!open || typeof window === "undefined" || !supportsNativeLectureRecording()) {
-      return;
-    }
-
-    const restore = async () => {
-      const nextState = await getNativeRecordingResumeState();
-
-      if (!nextState.isRecording) {
-        return;
-      }
-
-      elapsedRef.current = nextState.elapsedSeconds;
-      setElapsedSeconds(nextState.elapsedSeconds);
-      setIsRecording(true);
-      startElapsedTimer(true);
-    };
-
-    void restore();
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-
-      void restore();
-    };
-
-    window.addEventListener("focus", handleVisibilityChange);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("focus", handleVisibilityChange);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [open, startElapsedTimer]);
 
   useEffect(() => {
     if (!open) {
@@ -446,7 +349,7 @@ export function NoteSourceModal({
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        requestClose();
+        requestCloseRef.current();
       }
     }
 
@@ -460,7 +363,7 @@ export function NoteSourceModal({
       window.scrollTo(0, scrollY);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [open, requestClose]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -509,16 +412,6 @@ export function NoteSourceModal({
     }
 
     try {
-      if (supportsNativeLectureRecording()) {
-        await startNativeLectureRecording();
-        setIsRecording(true);
-        setElapsedSeconds(0);
-        elapsedRef.current = 0;
-        setError(null);
-        startElapsedTimer(true);
-        return;
-      }
-
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       setVisualizerStream(stream);
@@ -568,7 +461,13 @@ export function NoteSourceModal({
       setElapsedSeconds(0);
       elapsedRef.current = 0;
       setError(null);
-      startElapsedTimer(false);
+      timerRef.current = window.setInterval(() => {
+        setElapsedSeconds((value) => {
+          const nextValue = value + 1;
+          elapsedRef.current = nextValue;
+          return nextValue;
+        });
+      }, 1000);
     } catch (recordError) {
       setError(
         recordError instanceof Error
@@ -579,39 +478,38 @@ export function NoteSourceModal({
   }
 
   const stopRecording = useCallback(async () => {
-    if (supportsNativeLectureRecording()) {
-      try {
-        const nativeSource = await stopNativeLectureRecording();
-
-        await replaceAudioSource({
-          file: nativeSource.file,
-          durationSeconds: nativeSource.durationSeconds,
-          previewUrl: nativeSource.previewUrl,
-          origin: "recording",
-        });
-      } catch (stopError) {
-        setError(
-          stopError instanceof Error
-            ? stopError.message
-            : "Recording could not be stopped.",
-        );
-      } finally {
-        setIsRecording(false);
-        clearElapsedTimer();
-      }
-      return;
-    }
-
     recorderRef.current?.stop();
     recorderRef.current = null;
     setIsRecording(false);
     setVisualizerStream(null);
-    clearElapsedTimer();
-  }, [clearElapsedTimer, replaceAudioSource]);
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (isTextEditorOpen) {
+      setIsTextEditorOpen(false);
+      return;
+    }
+
+    if (isRecording) {
+      void stopRecording();
+      return;
+    }
+
+    if (busyLabel) {
+      void handleCancelBusyAction();
+      return;
+    }
+
+    onClose();
+  }, [busyLabel, handleCancelBusyAction, isRecording, isTextEditorOpen, onClose, stopRecording]);
 
   useEffect(() => {
-    stopRecordingRef.current = stopRecording;
-  }, [stopRecording]);
+    requestCloseRef.current = requestClose;
+  }, [requestClose]);
 
   async function createAudioLecture() {
     if (!audioSource) {

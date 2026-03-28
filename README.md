@@ -62,7 +62,6 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 INNGEST_EVENT_KEY=
 INNGEST_SIGNING_KEY=
 PREVIEW_AUTH_BYPASS=
-CAPACITOR_APP_URL=http://localhost:3000
 ```
 
 3. Create a Supabase project.
@@ -138,27 +137,6 @@ Shared production pieces:
 - standalone Next.js output in [`next.config.ts`](./next.config.ts)
 - health check route at `/api/health`
 - container build in [`Dockerfile`](./Dockerfile) for non-Vercel hosting
-
-## Mobile wrapper
-
-The repo now includes a Capacitor shell in [`capacitor.config.ts`](./capacitor.config.ts), [`ios/`](./ios), and [`android/`](./android).
-
-- `CAPACITOR_APP_URL` controls which deployed web app URL the native shell loads. It falls back to `NEXT_PUBLIC_SITE_URL`.
-- `npm run mobile:sync` syncs web assets and plugins into the native projects.
-- `npm run mobile:ios` opens the iOS project in Xcode.
-- `npm run mobile:android` opens the Android project in Android Studio.
-
-Recording behavior in the wrapper:
-
-- Web browsers still use `MediaRecorder`.
-- Capacitor iOS and Android use a native audio recorder.
-- iOS enables background audio mode in [`ios/App/App/Info.plist`](./ios/App/App/Info.plist).
-- Android starts a foreground microphone service from [`android/app/src/main/java/com/memo/mobile/BackgroundRecordingService.java`](./android/app/src/main/java/com/memo/mobile/BackgroundRecordingService.java) so recording can continue when the app is backgrounded or the screen is locked.
-
-Build prerequisites:
-
-- Android builds require a local Java SDK and Android Studio.
-- iOS builds require Xcode.
 
 ## Notes
 
