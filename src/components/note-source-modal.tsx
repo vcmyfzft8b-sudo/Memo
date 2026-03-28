@@ -979,13 +979,13 @@ export function NoteSourceModal({
                           <p className="ios-row-subtitle">
                             {formatTimestamp(elapsedSeconds * 1000)}
                           </p>
-                          <div className="mt-4 rounded-[24px] border border-rose-200/70 bg-gradient-to-br from-rose-100 via-white to-rose-50 px-4 py-4 text-rose-500">
+                          <div className="mt-4 px-4 py-4 text-[var(--label)]">
                             <LiveAudioWave
                               stream={visualizerStream}
                               active={isRecording}
                               className="mx-auto max-w-[14rem]"
                             />
-                            <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-rose-500/80">
+                            <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--secondary-label)]">
                               Live sound
                             </p>
                           </div>

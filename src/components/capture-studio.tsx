@@ -469,10 +469,10 @@ export function CaptureStudio({
 
                 <div
                   className={cn(
-                    "rounded-[24px] border px-4 py-4 transition",
+                    "px-4 py-4 transition",
                     isRecording
-                      ? "border-rose-200/80 bg-gradient-to-br from-rose-100 via-white to-rose-50 text-rose-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
-                      : "border-stone-200 bg-stone-50 text-stone-300",
+                      ? "text-[var(--label)]"
+                      : "text-[var(--secondary-label)]",
                   )}
                 >
                   <LiveAudioWave

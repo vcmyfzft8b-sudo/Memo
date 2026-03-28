@@ -23,6 +23,11 @@ function fallbackLevel(phase: number) {
   return clamp((wave * 0.72 + pulse * 0.28) * 0.18, 0, 0.2);
 }
 
+function normalizeMicLevel(rms: number) {
+  const gated = clamp((rms - 0.008) / 0.09, 0, 1);
+  return clamp(Math.pow(gated, 0.55) * 1.35, 0, 1);
+}
+
 export function LiveAudioWave({
   stream,
   active,
@@ -88,7 +93,7 @@ export function LiveAudioWave({
         }
 
         const rms = Math.sqrt(sum / frequencyData.length);
-        sampledLevel = clamp((rms - 0.01) / 0.16, 0, 1);
+        sampledLevel = normalizeMicLevel(rms);
       }
 
       targetLevelRef.current = sampledLevel;
@@ -96,7 +101,7 @@ export function LiveAudioWave({
       setDisplayedLevel((current) => {
         const target = targetLevelRef.current;
         const delta = target - current;
-        const easing = delta >= 0 ? 0.26 : 0.08;
+        const easing = delta >= 0 ? 0.42 : 0.14;
         return clamp(current + delta * easing, 0, 1);
       });
 
@@ -129,7 +134,7 @@ export function LiveAudioWave({
 
   return (
     <div aria-hidden="true" className={cn("flex items-center justify-center", className)}>
-      <div className="flex h-10 w-[4.6rem] items-center justify-center gap-[2.4px] rounded-[13px] border border-white/10 bg-[#050505] px-[7px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <div className="flex h-10 w-[4.6rem] items-center justify-center gap-[2.4px] px-[7px] text-[var(--label)]">
         {Array.from({ length: BAR_COUNT }, (_, index) => {
           const normalizedLevel = clamp(renderedLevel, 0, 1);
           const activeProgress = smoothstep(0.008, 0.055, normalizedLevel);
@@ -159,8 +164,10 @@ export function LiveAudioWave({
                 width: `${width}px`,
                 height: `${height}px`,
                 borderRadius: `${cornerRadius}px`,
-                backgroundColor: `rgba(255,255,255,${opacity})`,
-                boxShadow: `0 0.35px 0.65px rgba(0,0,0,${shadowOpacity})`,
+                backgroundColor: `color-mix(in srgb, currentColor ${Math.round(opacity * 100)}%, transparent)`,
+                boxShadow: `0 0.35px 0.65px color-mix(in srgb, currentColor ${Math.round(
+                  shadowOpacity * 55,
+                )}%, transparent)`,
               }}
             />
           );
