@@ -1,12 +1,10 @@
 export const STORAGE_BUCKET = "lecture-audio";
-export const PRACTICE_TEST_ANSWER_BUCKET = "practice-test-answers";
 
 export const MAX_AUDIO_BYTES = 300 * 1024 * 1024;
 export const MAX_AUDIO_SECONDS = 3 * 60 * 60;
 export const MAX_PDF_BYTES = 4 * 1024 * 1024;
 export const MAX_DOCUMENT_BYTES = MAX_PDF_BYTES;
 export const MAX_SCAN_IMAGE_BYTES = 8 * 1024 * 1024;
-export const MAX_PRACTICE_TEST_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export const SUPPORTED_AUDIO_MIME_TYPES = [
   "audio/mpeg",
@@ -81,7 +79,6 @@ export const DOCUMENT_FILE_INPUT_ACCEPT = [
 ].join(",");
 
 export const SCAN_IMAGE_INPUT_ACCEPT = "image/*";
-export const PRACTICE_TEST_IMAGE_INPUT_ACCEPT = "image/*";
 
 export const LECTURE_STATUS = [
   "uploading",

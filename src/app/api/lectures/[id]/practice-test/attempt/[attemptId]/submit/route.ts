@@ -27,8 +27,6 @@ const submitSchema = z.object({
           trim: true,
         }).or(z.literal("")),
         declaredUnknown: z.boolean(),
-        photoPath: z.string().min(3).max(512).nullable(),
-        photoMimeType: z.string().min(3).max(120).nullable(),
       }),
     )
     .min(1)

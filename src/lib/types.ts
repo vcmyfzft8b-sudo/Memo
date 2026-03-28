@@ -58,7 +58,6 @@ export type PracticeTestQuestion = PracticeTestQuestionRow;
 
 export interface PracticeTestAttemptAnswer extends PracticeTestAttemptAnswerRow {
   question: PracticeTestQuestion | null;
-  photoUrl: string | null;
 }
 
 export interface PracticeTestAttemptWithAnswers extends PracticeTestAttemptRow {
@@ -119,18 +118,10 @@ export interface PersistedQuizSessionState {
   optionOrders: Record<string, number[]>;
 }
 
-export interface PersistedPracticeTestPhotoDraft {
-  fileName: string;
-  previewUrl: string | null;
-  uploadedPath: string | null;
-  mimeType: string | null;
-}
-
 export interface PersistedPracticeTestSessionState {
   currentAttemptId: string | null;
   attemptQuestionIds: string[];
   textAnswers: Record<string, string>;
-  photoDrafts: Record<string, PersistedPracticeTestPhotoDraft>;
   unknownQuestionIds: string[];
   latestViewedAttemptId: string | null;
   submittedAt: string | null;

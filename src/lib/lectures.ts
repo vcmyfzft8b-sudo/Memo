@@ -26,7 +26,6 @@ import type {
   LectureDetail,
   PersistedFlashcardSessionResult,
   PersistedFlashcardSessionState,
-  PersistedPracticeTestPhotoDraft,
   PersistedPracticeTestSessionState,
   PersistedQuizSessionState,
   QuizQuestionWithOptions,
@@ -293,28 +292,6 @@ function parseQuizSessionState(value: unknown): PersistedQuizSessionState | null
   };
 }
 
-function parsePracticePhotoDrafts(value: unknown): Record<string, PersistedPracticeTestPhotoDraft> {
-  const record = parseJsonRecord(value);
-  const output: Record<string, PersistedPracticeTestPhotoDraft> = {};
-
-  for (const [questionId, candidate] of Object.entries(record)) {
-    const entry = parseJsonRecord(candidate);
-
-    if (typeof entry.fileName !== "string") {
-      continue;
-    }
-
-    output[questionId] = {
-      fileName: entry.fileName,
-      previewUrl: typeof entry.previewUrl === "string" ? entry.previewUrl : null,
-      uploadedPath: typeof entry.uploadedPath === "string" ? entry.uploadedPath : null,
-      mimeType: typeof entry.mimeType === "string" ? entry.mimeType : null,
-    };
-  }
-
-  return output;
-}
-
 function parsePracticeTestSessionState(value: unknown): PersistedPracticeTestSessionState | null {
   const record = parseJsonRecord(value);
 
@@ -332,7 +309,6 @@ function parsePracticeTestSessionState(value: unknown): PersistedPracticeTestSes
         (entry): entry is [string, string] => typeof entry[1] === "string",
       ),
     ),
-    photoDrafts: parsePracticePhotoDrafts(record.photoDrafts),
     unknownQuestionIds: Array.isArray(record.unknownQuestionIds)
       ? record.unknownQuestionIds.filter((item): item is string => typeof item === "string")
       : [],

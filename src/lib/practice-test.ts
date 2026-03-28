@@ -15,7 +15,6 @@ import type {
 import { generateStructuredObject } from "@/lib/ai/json";
 import { generateStructuredObjectWithGeminiFile } from "@/lib/ai/gemini";
 import { buildGeneratedContentLanguageInstruction } from "@/lib/languages";
-import { extractTextFromImage } from "@/lib/manual-lectures";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { createCoveragePlan } from "@/lib/study-coverage";
 import type { CoverageConcept, CoverageUnitPlan, SourceUnit } from "@/lib/study-models";
@@ -27,7 +26,6 @@ import type {
   PracticeTestHistorySummary,
   PracticeTestQuestion,
 } from "@/lib/types";
-import { PRACTICE_TEST_ANSWER_BUCKET } from "@/lib/constants";
 import { getAiProvider, getServerEnv } from "@/lib/server-env";
 
 const PRACTICE_TEST_CONCURRENCY = 3;
@@ -801,26 +799,6 @@ export async function createPracticeTestAttempt(params: {
   };
 }
 
-async function extractTextFromStoredPracticeAnswer(params: {
-  path: string;
-  mimeType: string | null;
-}) {
-  const supabase = createSupabaseServiceRoleClient();
-  const { data, error } = await supabase.storage
-    .from(PRACTICE_TEST_ANSWER_BUCKET)
-    .download(params.path);
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Could not download the answer image.");
-  }
-
-  const file = new File([data], params.path.split("/").pop() ?? "answer.jpg", {
-    type: params.mimeType ?? data.type ?? "image/jpeg",
-  });
-  const extracted = await extractTextFromImage(file);
-  return extracted.text;
-}
-
 async function gradeAnswer(params: {
   prompt: string;
   answerGuide: string;
@@ -899,8 +877,6 @@ export async function submitPracticeTestAttempt(params: {
     answerId: string;
     typedAnswer: string;
     declaredUnknown: boolean;
-    photoPath: string | null;
-    photoMimeType: string | null;
   }>;
 }) {
   const supabase = createSupabaseServiceRoleClient();
@@ -944,11 +920,10 @@ export async function submitPracticeTestAttempt(params: {
     const input = inputByAnswerId.get(answer.id);
     const hasResponse =
       Boolean(input?.declaredUnknown) ||
-      Boolean(input?.photoPath) ||
       Boolean(input?.typedAnswer.trim().length);
 
     if (!input || !hasResponse) {
-      throw new Error("Every practice-test question needs an answer, photo, or 'I don't know'.");
+      throw new Error("Every practice-test question needs an answer or 'I don't know'.");
     }
   }
 
@@ -963,8 +938,8 @@ export async function submitPracticeTestAttempt(params: {
           practice_test_question_id: answer.practice_test_question_id,
           idx: answer.idx,
           typed_answer: input.typedAnswer.trim() || null,
-          photo_path: input.photoPath,
-          photo_mime_type: input.photoMimeType,
+          photo_path: null,
+          photo_mime_type: null,
           declared_unknown: input.declaredUnknown,
         };
       }) as never,
@@ -1011,27 +986,10 @@ export async function submitPracticeTestAttempt(params: {
           };
         }
 
-        let extractedPhotoText = "";
-
-        if (input.photoPath) {
-          try {
-            extractedPhotoText = await extractTextFromStoredPracticeAnswer({
-              path: input.photoPath,
-              mimeType: input.photoMimeType,
-            });
-          } catch {
-            extractedPhotoText = "";
-          }
-        }
-
-        const combinedAnswer = [input.typedAnswer.trim(), extractedPhotoText.trim()]
-          .filter((value) => value.length > 0)
-          .join("\n\nPhoto text:\n");
-
         const graded = await gradeAnswer({
           prompt: question.prompt,
           answerGuide: question.answer_guide,
-          typedAnswer: combinedAnswer,
+          typedAnswer: input.typedAnswer.trim(),
         });
 
         return {
@@ -1147,23 +1105,6 @@ export async function getPracticeTestAttemptForUser(params: {
   );
 }
 
-async function createSignedPracticePhotoUrl(path: string | null) {
-  if (!path) {
-    return null;
-  }
-
-  const supabase = createSupabaseServiceRoleClient();
-  const { data, error } = await supabase.storage
-    .from(PRACTICE_TEST_ANSWER_BUCKET)
-    .createSignedUrl(path, 60 * 60);
-
-  if (error || !data?.signedUrl) {
-    return null;
-  }
-
-  return data.signedUrl;
-}
-
 export async function mapAttemptWithAnswers(
   attempt: PracticeTestAttemptRow,
   answers: Array<
@@ -1177,7 +1118,6 @@ export async function mapAttemptWithAnswers(
     mappedAnswers.push({
       ...answer,
       question,
-      photoUrl: await createSignedPracticePhotoUrl(answer.photo_path),
     });
   }
 

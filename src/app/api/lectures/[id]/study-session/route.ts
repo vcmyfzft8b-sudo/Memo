@@ -52,18 +52,10 @@ const quizStateSchema = z.object({
   optionOrders: z.record(z.string(), z.array(z.number().int().min(0))),
 });
 
-const practiceTestPhotoDraftSchema = z.object({
-  fileName: z.string().min(1).max(255),
-  previewUrl: z.string().nullable(),
-  uploadedPath: z.string().nullable(),
-  mimeType: z.string().nullable(),
-});
-
 const practiceTestStateSchema = z.object({
   currentAttemptId: z.string().uuid().nullable(),
   attemptQuestionIds: z.array(z.string().uuid()),
   textAnswers: z.record(z.string(), z.string()),
-  photoDrafts: z.record(z.string(), practiceTestPhotoDraftSchema),
   unknownQuestionIds: z.array(z.string()),
   latestViewedAttemptId: z.string().uuid().nullable(),
   submittedAt: z.string().datetime().nullable(),

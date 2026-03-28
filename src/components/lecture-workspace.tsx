@@ -16,13 +16,11 @@ import { StudyCompletionCard } from "@/components/study-completion-card";
 import type { FlashcardConfidenceBucket, StudyAssetStatus } from "@/lib/database.types";
 import {
   POLL_INTERVAL_MS,
-  PRACTICE_TEST_IMAGE_INPUT_ACCEPT,
 } from "@/lib/constants";
 import type {
   ChatMessageWithCitations,
   LectureDetail,
   PersistedFlashcardSessionState,
-  PersistedPracticeTestPhotoDraft,
   PersistedPracticeTestSessionState,
   PersistedQuizSessionState,
   QuizQuestionWithOptions,
@@ -588,7 +586,6 @@ function buildDefaultPracticeTestSessionState(): PersistedPracticeTestSessionSta
     currentAttemptId: null,
     attemptQuestionIds: [],
     textAnswers: {},
-    photoDrafts: {},
     unknownQuestionIds: [],
     latestViewedAttemptId: null,
     submittedAt: null,
@@ -620,9 +617,6 @@ function sanitizePracticeTestSessionState(
   const textAnswers = Object.fromEntries(
     Object.entries(session?.textAnswers ?? {}).filter(([questionId]) => validQuestionIds.has(questionId)),
   );
-  const photoDrafts = Object.fromEntries(
-    Object.entries(session?.photoDrafts ?? {}).filter(([questionId]) => validQuestionIds.has(questionId)),
-  ) as Record<string, PersistedPracticeTestPhotoDraft>;
 
   for (const answer of currentAttempt?.answers ?? []) {
     const questionKey = answer.practice_test_question_id ?? `snapshot-${answer.id}`;
@@ -630,22 +624,12 @@ function sanitizePracticeTestSessionState(
     if (!textAnswers[questionKey] && answer.typed_answer) {
       textAnswers[questionKey] = answer.typed_answer;
     }
-
-    if (!photoDrafts[questionKey] && answer.photo_path) {
-      photoDrafts[questionKey] = {
-        fileName: answer.photo_path.split("/").pop() ?? "answer",
-        previewUrl: answer.photoUrl,
-        uploadedPath: answer.photo_path,
-        mimeType: answer.photo_mime_type,
-      };
-    }
   }
 
   return {
     currentAttemptId: currentAttempt?.id ?? null,
     attemptQuestionIds,
     textAnswers,
-    photoDrafts,
     unknownQuestionIds: (session?.unknownQuestionIds ?? []).filter((id) => validQuestionIds.has(id)),
     latestViewedAttemptId:
       session?.latestViewedAttemptId ??
@@ -697,7 +681,6 @@ export function LectureWorkspace({
   const [isRegeneratingPracticeTest, setIsRegeneratingPracticeTest] = useState(false);
   const [isStartingPracticeTest, setIsStartingPracticeTest] = useState(false);
   const [isSubmittingPracticeTest, setIsSubmittingPracticeTest] = useState(false);
-  const [activePracticeUploadAnswerId, setActivePracticeUploadAnswerId] = useState<string | null>(null);
   const [studyError, setStudyError] = useState<string | null>(null);
   const [isFlashcardFlipped, setIsFlashcardFlipped] = useState(false);
   const [activeStudyView, setActiveStudyView] = useState<StudyMaterialView>(
@@ -757,9 +740,6 @@ export function LectureWorkspace({
   const [practiceTextAnswers, setPracticeTextAnswers] = useState<Record<string, string>>(
     initialPracticeTestSession.textAnswers,
   );
-  const [practicePhotoDrafts, setPracticePhotoDrafts] = useState<
-    Record<string, PersistedPracticeTestPhotoDraft>
-  >(initialPracticeTestSession.photoDrafts);
   const [practiceUnknownQuestionIds, setPracticeUnknownQuestionIds] = useState<string[]>(
     initialPracticeTestSession.unknownQuestionIds,
   );
@@ -770,8 +750,6 @@ export function LectureWorkspace({
     initialPracticeTestSession.submittedAt,
   );
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
-  const practicePhotoInputRef = useRef<HTMLInputElement | null>(null);
-  const practicePhotoTargetRef = useRef<{ answerId: string; questionIndex: number } | null>(null);
   const flashcardFeedbackTimerRef = useRef<number | null>(null);
   const flashcardFeedbackTokenRef = useRef(0);
   const studySessionPayloadRef = useRef<string | null>(null);
@@ -940,7 +918,6 @@ export function LectureWorkspace({
     setCurrentPracticeAttemptId(nextState.currentAttemptId);
     setPracticeAttemptQuestionIds(nextState.attemptQuestionIds);
     setPracticeTextAnswers(nextState.textAnswers);
-    setPracticePhotoDrafts(nextState.photoDrafts);
     setPracticeUnknownQuestionIds(nextState.unknownQuestionIds);
     setLatestViewedPracticeAttemptId(nextState.latestViewedAttemptId);
     setPracticeSubmittedAt(nextState.submittedAt);
@@ -1005,7 +982,6 @@ export function LectureWorkspace({
               currentAttemptId: currentPracticeAttemptId,
               attemptQuestionIds: practiceAttemptQuestionIds,
               textAnswers: practiceTextAnswers,
-              photoDrafts: practicePhotoDrafts,
               unknownQuestionIds: practiceUnknownQuestionIds,
               latestViewedAttemptId: latestViewedPracticeAttemptId,
               submittedAt: practiceSubmittedAt,
@@ -1046,7 +1022,6 @@ export function LectureWorkspace({
     flashcardSessionResults,
     latestViewedPracticeAttemptId,
     practiceAttemptQuestionIds,
-    practicePhotoDrafts,
     practiceSubmittedAt,
     practiceTextAnswers,
     practiceUnknownQuestionIds,
@@ -1188,7 +1163,6 @@ export function LectureWorkspace({
     const questionId = answer.practice_test_question_id ?? `snapshot-${answer.id}`;
     return (
       practiceUnknownQuestionIds.includes(questionId) ||
-      Boolean(practicePhotoDrafts[questionId]?.uploadedPath) ||
       Boolean(practiceTextAnswers[questionId]?.trim())
     );
   }).length;
@@ -1298,7 +1272,6 @@ export function LectureWorkspace({
     setCurrentPracticeAttemptId(null);
     setPracticeAttemptQuestionIds([]);
     setPracticeTextAnswers({});
-    setPracticePhotoDrafts({});
     setPracticeUnknownQuestionIds([]);
     setLatestViewedPracticeAttemptId(null);
     setPracticeSubmittedAt(null);
@@ -1324,7 +1297,6 @@ export function LectureWorkspace({
       Array.isArray(payload?.questions) ? payload.questions.map((question: { id: string }) => question.id) : [],
     );
     setPracticeTextAnswers({});
-    setPracticePhotoDrafts({});
     setPracticeUnknownQuestionIds([]);
     setLatestViewedPracticeAttemptId(payload?.id ?? null);
     setPracticeSubmittedAt(null);
@@ -1353,68 +1325,7 @@ export function LectureWorkspace({
         delete next[questionId];
         return next;
       });
-      setPracticePhotoDrafts((current) => {
-        const next = { ...current };
-        delete next[questionId];
-        return next;
-      });
     }
-  }
-
-  function promptPracticePhotoUpload(answerId: string, questionIndex: number) {
-    practicePhotoTargetRef.current = {
-      answerId,
-      questionIndex,
-    };
-    practicePhotoInputRef.current?.click();
-  }
-
-  async function handlePracticePhotoSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    const target = practicePhotoTargetRef.current;
-
-    if (!file || !target || !currentPracticeAttemptId) {
-      return;
-    }
-
-    const targetAnswer = currentPracticeAttempt?.answers.find((answer) => answer.id === target.answerId);
-    if (!targetAnswer) {
-      return;
-    }
-
-    setStudyError(null);
-    setActivePracticeUploadAnswerId(target.answerId);
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("answerId", target.answerId);
-    formData.append("questionIndex", String(target.questionIndex));
-
-    const response = await fetch(
-      `/api/lectures/${detail.lecture.id}/practice-test/attempt/${currentPracticeAttemptId}/photo`,
-      {
-        method: "POST",
-        body: formData,
-      },
-    );
-    const payload = await response.json().catch(() => null);
-    setActivePracticeUploadAnswerId(null);
-    event.target.value = "";
-
-    if (!response.ok) {
-      setStudyError(payload?.error ?? "The answer photo could not be uploaded.");
-      return;
-    }
-
-    setPracticePhotoDrafts((current) => ({
-      ...current,
-      [(targetAnswer.practice_test_question_id ?? `snapshot-${targetAnswer.id}`)]: {
-        fileName: file.name,
-        previewUrl: payload?.photoUrl ?? null,
-        uploadedPath: payload?.path ?? null,
-        mimeType: payload?.mimeType ?? file.type ?? null,
-      },
-    }));
   }
 
   async function handlePracticeTestSubmit() {
@@ -1428,8 +1339,6 @@ export function LectureWorkspace({
         answerId: answer.id,
         typedAnswer: practiceTextAnswers[questionId] ?? "",
         declaredUnknown: practiceUnknownQuestionIds.includes(questionId),
-        photoPath: practicePhotoDrafts[questionId]?.uploadedPath ?? null,
-        photoMimeType: practicePhotoDrafts[questionId]?.mimeType ?? null,
       };
     });
 
@@ -1888,15 +1797,6 @@ export function LectureWorkspace({
               ))}
             </div>
 
-            <input
-              ref={practicePhotoInputRef}
-              type="file"
-              accept={PRACTICE_TEST_IMAGE_INPUT_ACCEPT}
-              capture="environment"
-              className="hidden"
-              onChange={(event) => void handlePracticePhotoSelected(event)}
-            />
-
             {studyError ? <p className="danger-panel lecture-inline-note">{studyError}</p> : null}
             {activeMaterialError ? (
               <p className="danger-panel lecture-inline-note">{activeMaterialError}</p>
@@ -2334,7 +2234,6 @@ export function LectureWorkspace({
                     const question = answer.question;
                     const questionId = answer.practice_test_question_id ?? `snapshot-${answer.id}`;
                     const isUnknown = practiceUnknownQuestionIds.includes(questionId);
-                    const draft = practicePhotoDrafts[questionId];
 
                     return (
                       <div key={answer.id} className="lecture-practice-card">
@@ -2361,24 +2260,7 @@ export function LectureWorkspace({
                             />
                             I don&apos;t know
                           </label>
-                          <button
-                            type="button"
-                            disabled={isUnknown || activePracticeUploadAnswerId === answer.id}
-                            onClick={() => promptPracticePhotoUpload(answer.id, index)}
-                            className="lecture-study-action"
-                          >
-                            {activePracticeUploadAnswerId === answer.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : null}
-                            {draft?.uploadedPath ? "Replace photo" : "Attach photo"}
-                          </button>
                         </div>
-                        {draft?.previewUrl ? (
-                          <div className="lecture-practice-photo-preview">
-                            <img src={draft.previewUrl} alt={`Answer ${index + 1}`} />
-                            <span>{draft.fileName}</span>
-                          </div>
-                        ) : null}
                       </div>
                     );
                   })}
@@ -2390,7 +2272,6 @@ export function LectureWorkspace({
                     onClick={() => void handlePracticeTestSubmit()}
                     disabled={
                       isSubmittingPracticeTest ||
-                      activePracticeUploadAnswerId !== null ||
                       practiceQuestionsAnsweredCount < practiceAttemptAnswers.length
                     }
                     className="lecture-study-refresh"
