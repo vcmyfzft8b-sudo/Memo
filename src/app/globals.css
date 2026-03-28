@@ -1346,7 +1346,7 @@ select:disabled {
 }
 
 .note-source-inline-textarea {
-  min-height: 15.5rem;
+  min-height: 13.75rem;
   resize: vertical;
 }
 
