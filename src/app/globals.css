@@ -29,6 +29,19 @@
   --red-soft: rgba(255, 59, 48, 0.12);
   --purple: #bf5af2;
   --nav-background: rgba(255, 255, 255, 0.72);
+  --tab-item-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.58));
+  --tab-item-highlight-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 8px 18px rgba(0, 102, 204, 0.12);
+  --tab-item-active-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
+  --tab-item-active-highlight-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    0 12px 24px rgba(0, 0, 0, 0.1);
+  --tab-item-hover-icon-background: rgba(255, 255, 255, 0.24);
+  --tab-item-hover-icon-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+  --tab-item-active-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 10px 20px rgba(0, 0, 0, 0.08);
   --sheet-background: #ffffff;
   --pressed: rgba(0, 0, 0, 0.05);
   --close-fill: rgba(0, 0, 0, 0.08);
@@ -69,6 +82,19 @@
   --red-soft: rgba(255, 69, 58, 0.15);
   --purple: #bf5af2;
   --nav-background: rgba(28, 28, 30, 0.72);
+  --tab-item-highlight: linear-gradient(180deg, rgba(76, 76, 80, 0.88), rgba(48, 48, 52, 0.78));
+  --tab-item-highlight-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 22px rgba(0, 0, 0, 0.34);
+  --tab-item-active-highlight: linear-gradient(180deg, rgba(96, 96, 101, 0.94), rgba(58, 58, 62, 0.86));
+  --tab-item-active-highlight-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 12px 26px rgba(0, 0, 0, 0.42);
+  --tab-item-hover-icon-background: rgba(255, 255, 255, 0.08);
+  --tab-item-hover-icon-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
+  --tab-item-active-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 22px rgba(0, 0, 0, 0.32);
   --sheet-background: #1c1c1e;
   --pressed: rgba(255, 255, 255, 0.08);
   --close-fill: rgba(255, 255, 255, 0.12);
@@ -111,6 +137,19 @@
     --red-soft: rgba(255, 69, 58, 0.15);
     --purple: #bf5af2;
     --nav-background: rgba(28, 28, 30, 0.72);
+    --tab-item-highlight: linear-gradient(180deg, rgba(76, 76, 80, 0.88), rgba(48, 48, 52, 0.78));
+    --tab-item-highlight-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 10px 22px rgba(0, 0, 0, 0.34);
+    --tab-item-active-highlight: linear-gradient(180deg, rgba(96, 96, 101, 0.94), rgba(58, 58, 62, 0.86));
+    --tab-item-active-highlight-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 12px 26px rgba(0, 0, 0, 0.42);
+    --tab-item-hover-icon-background: rgba(255, 255, 255, 0.08);
+    --tab-item-hover-icon-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
+    --tab-item-active-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 10px 22px rgba(0, 0, 0, 0.32);
     --sheet-background: #1c1c1e;
     --pressed: rgba(255, 255, 255, 0.08);
     --close-fill: rgba(255, 255, 255, 0.12);
@@ -693,13 +732,10 @@ select:disabled {
   position: absolute;
   inset: 0.2rem 0.25rem;
   border-radius: 0.95rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.58));
+  background: var(--tab-item-highlight);
   opacity: 0;
   transform: scale(0.88);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 8px 18px rgba(0, 102, 204, 0.12);
+  box-shadow: var(--tab-item-highlight-shadow);
   transition:
     opacity var(--motion-duration-fast) ease,
     transform var(--motion-duration-fast) var(--motion-curve-soft),
@@ -748,8 +784,8 @@ select:disabled {
   }
 
   .ios-tab-item:hover .ios-tab-item-icon {
-    background: rgba(255, 255, 255, 0.24);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+    background: var(--tab-item-hover-icon-background);
+    box-shadow: var(--tab-item-hover-icon-shadow);
     transform: translateY(0) scale(1.01);
   }
 
@@ -764,18 +800,14 @@ select:disabled {
 
 .ios-tab-item.active {
   color: var(--label);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    0 10px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--tab-item-active-shadow);
 }
 
 .ios-tab-item.active::after {
   opacity: 0.88;
   transform: scale(1);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.58),
-    0 12px 24px rgba(0, 0, 0, 0.1);
+  background: var(--tab-item-active-highlight);
+  box-shadow: var(--tab-item-active-highlight-shadow);
 }
 
 .ios-tab-item.active .ios-tab-item-icon {
