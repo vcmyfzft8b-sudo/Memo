@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand-logo";
@@ -37,18 +38,16 @@ export default async function CheckEmailPage({
   return (
     <main className="landing-shell landing-auth-page check-email-page">
       <div className="check-email-topbar">
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a href="/" className="app-back-button">
+        <Link href="/" className="app-back-button">
           <ChevronLeft className="h-5 w-5" />
           Back
-        </a>
+        </Link>
       </div>
 
       <section className="landing-auth-wrap check-email-wrap">
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a href="/" className="landing-auth-brand check-email-brand" aria-label={`${BRAND_NAME} home`}>
+        <Link href="/" className="landing-auth-brand check-email-brand" aria-label={`${BRAND_NAME} home`}>
           <BrandLogo compact imageSizes="(max-width: 768px) 4.6rem, 7rem" priority />
-        </a>
+        </Link>
 
         <div className="check-email-hero">
           <p className="check-email-eyebrow">Check your email</p>

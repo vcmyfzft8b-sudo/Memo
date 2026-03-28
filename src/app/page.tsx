@@ -57,10 +57,9 @@ export default async function HomePage() {
   return (
     <main className="landing-shell landing-auth-page">
       <div className="landing-auth-wrap">
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a href="/" className="landing-auth-brand" aria-label={`${BRAND_NAME} home`}>
+        <Link href="/" className="landing-auth-brand" aria-label={`${BRAND_NAME} home`}>
           <BrandLogo compact imageSizes="(max-width: 768px) 4.6rem, 7rem" priority />
-        </a>
+        </Link>
 
         <section className="landing-auth-hero">
           <h1 className="landing-auth-title">Sign in</h1>
@@ -85,15 +84,13 @@ export default async function HomePage() {
           ) : null}
 
           {providers.email ? (
-            <>
-              <a
-                href="/auth/email-entry?mode=signup&next=%2Fapp"
-                className="landing-provider-button tertiary"
-              >
-                <Mail className="auth-provider-icon" />
-                <span>Continue with email</span>
-              </a>
-            </>
+            <Link
+              href="/auth/email-entry?mode=signup&next=%2Fapp"
+              className="landing-provider-button tertiary"
+            >
+              <Mail className="auth-provider-icon" />
+              <span>Continue with email</span>
+            </Link>
           ) : null}
         </div>
 
