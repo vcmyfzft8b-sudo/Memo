@@ -14,6 +14,8 @@ import type {
 import type { FlashcardDifficulty } from "@/lib/database.types";
 
 const CARD_CONCURRENCY = 4;
+const MAX_CONCEPTS_PER_CARD_BATCH = 3;
+const MAX_TARGET_CARDS_PER_CARD_BATCH = 4;
 
 const generatedCitationSchema = z.object({
   idx: z.number().int().nonnegative(),
@@ -77,6 +79,105 @@ function normalizeCard(card: CoverageCardDraft): CoverageCardDraft {
     back: (normalizedBack.length >= 12 ? normalizedBack : `${normalizedBack}.`).slice(0, 260).trim(),
     hint: card.hint ? normalizeCardText(card.hint) : null,
   };
+}
+
+function sliceExcerpt(value: string, maxLength: number) {
+  return normalizeCardText(value).slice(0, maxLength).trim();
+}
+
+function buildFallbackFront(concept: CoverageConcept) {
+  const label = sliceExcerpt(concept.conceptLabel, 96) || "Ključni pojem";
+
+  switch (concept.preferredCardStyle) {
+    case "sequence":
+      return `Naštejte korake: ${label}`;
+    case "compare":
+      return `Primerjaj: ${label}`;
+    case "apply":
+      return `Primer uporabe: ${label}`;
+    case "explain":
+      return `Pojasni: ${label}`;
+    case "recall":
+    default:
+      return `Termin: ${label}`;
+  }
+}
+
+function buildFallbackBack(concept: CoverageConcept, unit: SourceUnit) {
+  const excerpt = sliceExcerpt(concept.supportingExcerpt, 220);
+
+  if (excerpt.length >= 12) {
+    return excerpt;
+  }
+
+  const sentence = unit.text.split(/(?<=[.!?])\s+/).find((candidate) => normalizeCardText(candidate).length >= 12);
+  return sliceExcerpt(sentence ?? unit.text, 220) || "Ključna informacija iz vira.";
+}
+
+function buildFallbackCard(params: {
+  concept: CoverageConcept;
+  unit: SourceUnit;
+}): CoverageCardDraft {
+  const difficulty: FlashcardDifficulty =
+    params.concept.studyValue === "high"
+      ? "hard"
+      : params.concept.studyValue === "low"
+        ? "easy"
+        : "medium";
+
+  return normalizeCard({
+    front: buildFallbackFront(params.concept),
+    back: buildFallbackBack(params.concept, params.unit),
+    hint: sliceExcerpt(params.unit.locatorLabel, 120) || null,
+    difficulty,
+    citations: normalizeCitations({
+      citations: [
+        {
+          idx: params.unit.unitIndex,
+          startMs: Math.max(params.unit.startMs ?? 0, 0),
+          endMs: Math.max(params.unit.endMs ?? params.unit.startMs ?? 0, params.unit.startMs ?? 0),
+          quote: params.concept.supportingExcerpt || params.unit.text,
+        },
+      ],
+      unit: params.unit,
+      contextUnits: [],
+    }),
+    conceptKey: params.concept.conceptKey,
+    cardKind: params.concept.preferredCardStyle,
+    sourceUnitIdx: params.unit.unitIndex,
+    sourceType: params.unit.sourceType,
+    sourceLocator: params.unit.locatorLabel,
+    coverageRank: params.concept.studyValue === "high" ? 8 : params.concept.studyValue === "medium" ? 6 : 4,
+  });
+}
+
+function splitConceptsIntoBatches(concepts: CoverageConcept[]) {
+  const batches: CoverageConcept[][] = [];
+  let currentBatch: CoverageConcept[] = [];
+  let currentTargetCount = 0;
+
+  for (const concept of concepts) {
+    const conceptTargetCount = Math.max(concept.recommendedCardCount, 1);
+    const wouldExceedConceptLimit = currentBatch.length >= MAX_CONCEPTS_PER_CARD_BATCH;
+    const wouldExceedTargetLimit =
+      currentBatch.length > 0 &&
+      currentTargetCount + conceptTargetCount > MAX_TARGET_CARDS_PER_CARD_BATCH;
+
+    if (wouldExceedConceptLimit || wouldExceedTargetLimit) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentTargetCount = 0;
+    }
+
+    currentBatch.push(concept);
+    currentTargetCount += conceptTargetCount;
+  }
+
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  return batches;
 }
 
 function buildFallbackQuote(text: string) {
@@ -236,7 +337,7 @@ async function mapWithConcurrency<TInput, TOutput>(
   return results;
 }
 
-async function generateCardsForUnit(params: {
+async function generateCardsForConceptBatch(params: {
   title: string | null;
   summary: string;
   keyTopics: string[];
@@ -348,6 +449,82 @@ Keep fronts concise and backs concise enough to review quickly.`,
       }),
     ),
   );
+}
+
+async function generateCardsForConceptBatchWithFallback(params: {
+  title: string | null;
+  summary: string;
+  keyTopics: string[];
+  unit: SourceUnit;
+  plan: CoverageUnitPlan;
+  contextUnits: SourceUnit[];
+  concepts: CoverageConcept[];
+  outputLanguage?: string | null;
+  repairOnly?: boolean;
+}): Promise<CoverageCardDraft[]> {
+  try {
+    return await generateCardsForConceptBatch(params);
+  } catch (error) {
+    if (params.concepts.length > 1) {
+      const conceptBatches = splitConceptsIntoBatches(params.concepts);
+
+      if (conceptBatches.length > 1) {
+        const recovered = await mapWithConcurrency(conceptBatches, 1, async (concepts) =>
+          generateCardsForConceptBatchWithFallback({
+            ...params,
+            concepts,
+          }),
+        );
+
+        return dedupeCards(recovered.flat());
+      }
+
+      const midpoint = Math.ceil(params.concepts.length / 2);
+      const recovered = await Promise.all([
+        generateCardsForConceptBatchWithFallback({
+          ...params,
+          concepts: params.concepts.slice(0, midpoint),
+        }),
+        generateCardsForConceptBatchWithFallback({
+          ...params,
+          concepts: params.concepts.slice(midpoint),
+        }),
+      ]);
+
+      return dedupeCards(recovered.flat());
+    }
+
+    const [concept] = params.concepts;
+    console.warn("Falling back to deterministic flashcard generation for concept", {
+      unitIndex: params.unit.unitIndex,
+      conceptKey: concept?.conceptKey,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    return concept ? [buildFallbackCard({ concept, unit: params.unit })] : [];
+  }
+}
+
+async function generateCardsForUnit(params: {
+  title: string | null;
+  summary: string;
+  keyTopics: string[];
+  unit: SourceUnit;
+  plan: CoverageUnitPlan;
+  contextUnits: SourceUnit[];
+  concepts: CoverageConcept[];
+  outputLanguage?: string | null;
+  repairOnly?: boolean;
+}) {
+  const conceptBatches = splitConceptsIntoBatches(params.concepts);
+  const generatedBatches = await mapWithConcurrency(conceptBatches, 1, async (concepts) =>
+    generateCardsForConceptBatchWithFallback({
+      ...params,
+      concepts,
+    }),
+  );
+
+  return dedupeCards(generatedBatches.flat());
 }
 
 export async function generateCoverageCards(params: {

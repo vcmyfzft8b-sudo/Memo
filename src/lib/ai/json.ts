@@ -14,12 +14,34 @@ function stripCodeFences(value: string) {
   return value.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
 }
 
+function extractJsonPayload(value: string) {
+  const stripped = stripCodeFences(value);
+  const objectStart = stripped.indexOf("{");
+  const arrayStart = stripped.indexOf("[");
+  const candidateStarts = [objectStart, arrayStart].filter((index) => index >= 0);
+
+  if (candidateStarts.length === 0) {
+    return stripped;
+  }
+
+  const start = Math.min(...candidateStarts);
+  const openingChar = stripped[start];
+  const closingChar = openingChar === "[" ? "]" : "}";
+  const end = stripped.lastIndexOf(closingChar);
+
+  if (end <= start) {
+    return stripped.slice(start).trim();
+  }
+
+  return stripped.slice(start, end + 1).trim();
+}
+
 function getResponseText(response: { output_text?: string }) {
   return typeof response.output_text === "string" ? response.output_text.trim() : "";
 }
 
 function parseStructuredText<TSchema extends z.ZodTypeAny>(schema: TSchema, text: string) {
-  return schema.parse(JSON.parse(stripCodeFences(text)));
+  return schema.parse(JSON.parse(extractJsonPayload(text)));
 }
 
 function describeStructuredOutputError(error: unknown) {
