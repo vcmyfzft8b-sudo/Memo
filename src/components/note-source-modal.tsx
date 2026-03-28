@@ -849,20 +849,29 @@ export function NoteSourceModal({
     );
   }
 
-  function renderBusyNotice() {
+  function renderLoadingState() {
     if (!busyLabel) {
       return null;
     }
 
     return (
-      <div className="ios-card note-source-busy-card" aria-live="polite">
+      <div className="note-source-loading-state" aria-live="polite">
         <div className="note-source-busy-row">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <p className="ios-row-title note-source-busy-title">{busyLabel}</p>
+          <Loader2 className="h-4 w-4 animate-spin note-source-loading-spinner" />
+          <p className="note-source-busy-title">{busyLabel}</p>
         </div>
-        <p className="ios-row-subtitle note-source-busy-copy">
+        <p className="note-source-busy-copy">
           Do not close this screen. It will close automatically when everything is ready.
         </p>
+        <button
+          type="button"
+          className="ios-secondary-button"
+          disabled={isCancelling}
+          onClick={() => void handleCancelBusyAction()}
+        >
+          {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Cancel
+        </button>
       </div>
     );
   }
@@ -901,293 +910,292 @@ export function NoteSourceModal({
               <p className="note-source-description">{sheetDescription()}</p>
             ) : null}
 
-            <div className="mt-6 ios-segmented note-source-segmented">
-              {MODES.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setSelectedMode(item.id)}
-                  className={`ios-segment ${selectedMode === item.id ? "active" : ""}`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-6 space-y-4 note-source-modal-body">
-              <div>
-                <label className="note-source-field-label">
-                  Language
-                </label>
-                <div className="relative note-source-select-wrap">
-                  <select
-                    value={languageHint}
-                    onChange={(event) => setLanguageHint(event.target.value)}
-                    className="ios-select appearance-none pr-10"
-                  >
-                    {NOTE_LANGUAGE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--secondary-label)]" />
-                </div>
+            {busyLabel ? (
+              <div className="mt-6 note-source-modal-body note-source-modal-body-loading">
+                {renderLoadingState()}
               </div>
-
-              {selectedMode === "record" ? (
-                <>
-                  {renderBusyNotice()}
-
-                  {preparedRecording ? (
-                    <div className="ios-card">
-                      <p className="note-source-card-label">Prepared recording</p>
-                      <p className="ios-row-title mt-3">{preparedRecording.file.name}</p>
-                      <p className="ios-row-subtitle">
-                        {formatTimestamp(preparedRecording.durationSeconds * 1000)}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {isRecording ? (
-                    <div className="ios-card">
-                      <p className="note-source-card-label">Recording</p>
-                      <p className="ios-row-title mt-3">Recording in progress</p>
-                      <p className="ios-row-subtitle">
-                        {formatTimestamp(elapsedSeconds * 1000)}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {isRecording ? (
+            ) : (
+              <>
+                <div className="mt-6 ios-segmented note-source-segmented">
+                  {MODES.map((item) => (
                     <button
+                      key={item.id}
                       type="button"
-                      disabled={Boolean(busyLabel)}
-                      className="ios-primary-button"
-                      onClick={() => {
-                        if (busyLabel) {
-                          return;
-                        }
-
-                        stopRecording();
-                      }}
+                      onClick={() => setSelectedMode(item.id)}
+                      className={`ios-segment ${selectedMode === item.id ? "active" : ""}`}
                     >
-                      {busyLabel ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <EmojiIcon symbol="🎙️" size="1rem" />
-                      )}
-                      {busyLabel ?? "Stop recording"}
+                      {item.label}
                     </button>
-                  ) : null}
-
-                  {!isRecording && preparedRecording ? (
-                    <>
-                      {renderBusyOrGenerateButton({
-                        canGenerate: true,
-                        onGenerate: () => void createAudioLecture(),
-                        generateIcon: "📄",
-                      })}
-
-                      <button
-                        type="button"
-                        className="ios-secondary-button"
-                        disabled={Boolean(busyLabel)}
-                        onClick={() => {
-                          clearAudioSource();
-                          void startRecording();
-                        }}
+                  ))}
+                </div>
+                <div className="mt-6 space-y-4 note-source-modal-body">
+                  <div>
+                    <label className="note-source-field-label">
+                      Language
+                    </label>
+                    <div className="relative note-source-select-wrap">
+                      <select
+                        value={languageHint}
+                        onChange={(event) => setLanguageHint(event.target.value)}
+                        className="ios-select appearance-none pr-10"
                       >
-                        Record again
-                      </button>
+                        {NOTE_LANGUAGE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--secondary-label)]" />
+                    </div>
+                  </div>
+
+                  {selectedMode === "record" ? (
+                    <>
+                      {preparedRecording ? (
+                        <div className="ios-card">
+                          <p className="note-source-card-label">Prepared recording</p>
+                          <p className="ios-row-title mt-3">{preparedRecording.file.name}</p>
+                          <p className="ios-row-subtitle">
+                            {formatTimestamp(preparedRecording.durationSeconds * 1000)}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {isRecording ? (
+                        <div className="ios-card">
+                          <p className="note-source-card-label">Recording</p>
+                          <p className="ios-row-title mt-3">Recording in progress</p>
+                          <p className="ios-row-subtitle">
+                            {formatTimestamp(elapsedSeconds * 1000)}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {isRecording ? (
+                        <button
+                          type="button"
+                          disabled={Boolean(busyLabel)}
+                          className="ios-primary-button"
+                          onClick={() => {
+                            if (busyLabel) {
+                              return;
+                            }
+
+                            stopRecording();
+                          }}
+                        >
+                          {busyLabel ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <EmojiIcon symbol="🎙️" size="1rem" />
+                          )}
+                          {busyLabel ?? "Stop recording"}
+                        </button>
+                      ) : null}
+
+                      {!isRecording && preparedRecording ? (
+                        <>
+                          {renderBusyOrGenerateButton({
+                            canGenerate: true,
+                            onGenerate: () => void createAudioLecture(),
+                            generateIcon: "📄",
+                          })}
+
+                          <button
+                            type="button"
+                            className="ios-secondary-button"
+                            disabled={Boolean(busyLabel)}
+                            onClick={() => {
+                              clearAudioSource();
+                              void startRecording();
+                            }}
+                          >
+                            Record again
+                          </button>
+                        </>
+                      ) : null}
+
+                      {!isRecording && !preparedRecording ? (
+                        <button
+                          type="button"
+                          disabled={Boolean(busyLabel)}
+                          className="ios-primary-button"
+                          onClick={() => void startRecording()}
+                        >
+                          {busyLabel ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <EmojiIcon symbol="🎙️" size="1rem" />
+                          )}
+                          {busyLabel ?? "Start recording"}
+                        </button>
+                      ) : null}
                     </>
                   ) : null}
 
-                  {!isRecording && !preparedRecording ? (
-                    <button
-                      type="button"
-                      disabled={Boolean(busyLabel)}
-                      className="ios-primary-button"
-                      onClick={() => void startRecording()}
-                    >
-                      {busyLabel ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <EmojiIcon symbol="🎙️" size="1rem" />
-                      )}
-                      {busyLabel ?? "Start recording"}
-                    </button>
-                  ) : null}
-                </>
-              ) : null}
+                  {selectedMode === "upload" ? (
+                    <>
+                      {preparedUpload ? (
+                        <div className="ios-card">
+                          <p className="note-source-card-label">Selected file</p>
+                          <p className="ios-row-title mt-3">{preparedUpload.file.name}</p>
+                          <p className="ios-row-subtitle">
+                            {formatTimestamp(preparedUpload.durationSeconds * 1000)}
+                          </p>
+                        </div>
+                      ) : null}
 
-              {selectedMode === "upload" ? (
-                <>
-                  {renderBusyNotice()}
-
-                  {preparedUpload ? (
-                    <div className="ios-card">
-                      <p className="note-source-card-label">Selected file</p>
-                      <p className="ios-row-title mt-3">{preparedUpload.file.name}</p>
-                      <p className="ios-row-subtitle">
-                        {formatTimestamp(preparedUpload.durationSeconds * 1000)}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  <input
-                    ref={uploadInputRef}
-                    type="file"
-                    accept={AUDIO_FILE_INPUT_ACCEPT}
-                    onChange={handleUploadFileChange}
-                    className="hidden"
-                  />
-
-                  <button
-                    type="button"
-                    disabled={Boolean(busyLabel)}
-                    className="ios-secondary-button"
-                    onClick={() => uploadInputRef.current?.click()}
-                  >
-                    <EmojiIcon symbol="📤" size="1rem" />
-                    {preparedUpload ? "Choose another audio file" : "Choose audio file"}
-                  </button>
-
-                  {renderBusyOrGenerateButton({
-                    canGenerate: Boolean(preparedUpload),
-                    onGenerate: () => void createAudioLecture(),
-                    generateIcon: "📄",
-                  })}
-                </>
-              ) : null}
-
-              {selectedMode === "link" ? (
-                <>
-                  {renderBusyNotice()}
-
-                  <div>
-                    <label className="note-source-field-label">
-                      Link
-                    </label>
-                    <div className="ios-search">
-                      <EmojiIcon symbol="🔎" size="0.95rem" />
                       <input
-                        value={linkValue}
-                        onChange={(event) => setLinkValue(event.target.value)}
-                        placeholder="https://example.com"
+                        ref={uploadInputRef}
+                        type="file"
+                        accept={AUDIO_FILE_INPUT_ACCEPT}
+                        onChange={handleUploadFileChange}
+                        className="hidden"
                       />
-                    </div>
-                  </div>
 
-                  {renderBusyOrGenerateButton({
-                    canGenerate: canGenerateLink,
-                    onGenerate: () => void createLinkLecture(),
-                    generateIcon: "🔗",
-                  })}
-                </>
-              ) : null}
+                      <button
+                        type="button"
+                        disabled={Boolean(busyLabel)}
+                        className="ios-secondary-button"
+                        onClick={() => uploadInputRef.current?.click()}
+                      >
+                        <EmojiIcon symbol="📤" size="1rem" />
+                        {preparedUpload ? "Choose another audio file" : "Choose audio file"}
+                      </button>
 
-              {selectedMode === "text" ? (
-                <>
-                  {renderBusyNotice()}
-
-                  {pdfSource ? (
-                    <div className="ios-card note-source-docs-file-card">
-                      <p className="note-source-card-label">Document selected</p>
-                      <p className="ios-row-title note-source-docs-file-name">{pdfSource.name}</p>
-                      <p className="ios-row-subtitle note-source-docs-file-copy">
-                        Used until you start typing again.
-                      </p>
-                    </div>
+                      {renderBusyOrGenerateButton({
+                        canGenerate: Boolean(preparedUpload),
+                        onGenerate: () => void createAudioLecture(),
+                        generateIcon: "📄",
+                      })}
+                    </>
                   ) : null}
 
-                  {!pdfSource && scannedFileName ? (
-                    <div className="ios-card note-source-docs-file-card">
-                      <p className="note-source-card-label">Scanned text ready</p>
-                      <p className="ios-row-title note-source-docs-file-name">{scannedFileName}</p>
-                      <p className="ios-row-subtitle note-source-docs-file-copy">
-                        Review and edit the extracted text before generating notes.
-                      </p>
-                    </div>
+                  {selectedMode === "link" ? (
+                    <>
+                      <div>
+                        <label className="note-source-field-label">
+                          Link
+                        </label>
+                        <div className="ios-search">
+                          <EmojiIcon symbol="🔎" size="0.95rem" />
+                          <input
+                            value={linkValue}
+                            onChange={(event) => setLinkValue(event.target.value)}
+                            placeholder="https://example.com"
+                          />
+                        </div>
+                      </div>
+
+                      {renderBusyOrGenerateButton({
+                        canGenerate: canGenerateLink,
+                        onGenerate: () => void createLinkLecture(),
+                        generateIcon: "🔗",
+                      })}
+                    </>
                   ) : null}
 
-                  <div className="note-source-docs-textarea-wrap">
-                    <textarea
-                      value={textValue}
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
+                  {selectedMode === "text" ? (
+                    <>
+                      {pdfSource ? (
+                        <div className="ios-card note-source-docs-file-card">
+                          <p className="note-source-card-label">Document selected</p>
+                          <p className="ios-row-title note-source-docs-file-name">{pdfSource.name}</p>
+                          <p className="ios-row-subtitle note-source-docs-file-copy">
+                            Used until you start typing again.
+                          </p>
+                        </div>
+                      ) : null}
 
-                        if (pdfSource && nextValue.trim().length > 0) {
-                          setPdfSource(null);
-                        }
+                      {!pdfSource && scannedFileName ? (
+                        <div className="ios-card note-source-docs-file-card">
+                          <p className="note-source-card-label">Scanned text ready</p>
+                          <p className="ios-row-title note-source-docs-file-name">{scannedFileName}</p>
+                          <p className="ios-row-subtitle note-source-docs-file-copy">
+                            Review and edit the extracted text before generating notes.
+                          </p>
+                        </div>
+                      ) : null}
 
-                        if (nextValue.trim().length === 0) {
-                          setScannedFileName(null);
-                        }
+                      <div className="note-source-docs-textarea-wrap">
+                        <textarea
+                          value={textValue}
+                          onChange={(event) => {
+                            const nextValue = event.target.value;
 
-                        setTextValue(nextValue);
-                      }}
-                      className="ios-textarea note-source-inline-textarea"
-                      placeholder="Paste notes or text here..."
-                    />
-                  </div>
+                            if (pdfSource && nextValue.trim().length > 0) {
+                              setPdfSource(null);
+                            }
 
-                  <input
-                    ref={pdfInputRef}
-                    type="file"
-                    accept={DOCUMENT_FILE_INPUT_ACCEPT}
-                    onChange={handlePdfPick}
-                    className="hidden"
-                  />
+                            if (nextValue.trim().length === 0) {
+                              setScannedFileName(null);
+                            }
 
-                  <input
-                    ref={scanInputRef}
-                    type="file"
-                    accept={SCAN_IMAGE_INPUT_ACCEPT}
-                    capture="environment"
-                    onChange={handleScanImageChange}
-                    className="hidden"
-                  />
+                            setTextValue(nextValue);
+                          }}
+                          className="ios-textarea note-source-inline-textarea"
+                          placeholder="Paste notes or text here..."
+                        />
+                      </div>
 
-                  <div className="note-source-docs-actions note-source-docs-actions-bottom">
-                    <button
-                      type="button"
-                      className="ios-secondary-button note-source-docs-action-button"
-                      disabled={Boolean(busyLabel)}
-                      onClick={() => pdfInputRef.current?.click()}
-                    >
-                      <EmojiIcon symbol="📤" size="1rem" />
-                      File
-                    </button>
+                      <input
+                        ref={pdfInputRef}
+                        type="file"
+                        accept={DOCUMENT_FILE_INPUT_ACCEPT}
+                        onChange={handlePdfPick}
+                        className="hidden"
+                      />
 
-                    <button
-                      type="button"
-                      className="ios-secondary-button note-source-docs-action-button"
-                      disabled={Boolean(busyLabel)}
-                      onClick={() => scanInputRef.current?.click()}
-                    >
-                      <EmojiIcon symbol="📷" size="1rem" />
-                      Scan
-                    </button>
-                  </div>
+                      <input
+                        ref={scanInputRef}
+                        type="file"
+                        accept={SCAN_IMAGE_INPUT_ACCEPT}
+                        capture="environment"
+                        onChange={handleScanImageChange}
+                        className="hidden"
+                      />
 
-                  {renderBusyOrGenerateButton({
-                    canGenerate: canGenerateText,
-                    onGenerate: () => {
-                      if (pdfSource) {
-                        void createPdfLecture();
-                        return;
-                      }
+                      <div className="note-source-docs-actions note-source-docs-actions-bottom">
+                        <button
+                          type="button"
+                          className="ios-secondary-button note-source-docs-action-button"
+                          disabled={Boolean(busyLabel)}
+                          onClick={() => pdfInputRef.current?.click()}
+                        >
+                          <EmojiIcon symbol="📤" size="1rem" />
+                          File
+                        </button>
 
-                      void createTextLecture();
-                    },
-                    generateIcon: "📄",
-                  })}
-                </>
-              ) : null}
+                        <button
+                          type="button"
+                          className="ios-secondary-button note-source-docs-action-button"
+                          disabled={Boolean(busyLabel)}
+                          onClick={() => scanInputRef.current?.click()}
+                        >
+                          <EmojiIcon symbol="📷" size="1rem" />
+                          Scan
+                        </button>
+                      </div>
 
-              {error ? <p className="ios-info ios-danger">{error}</p> : null}
-            </div>
+                      {renderBusyOrGenerateButton({
+                        canGenerate: canGenerateText,
+                        onGenerate: () => {
+                          if (pdfSource) {
+                            void createPdfLecture();
+                            return;
+                          }
+
+                          void createTextLecture();
+                        },
+                        generateIcon: "📄",
+                      })}
+                    </>
+                  ) : null}
+
+                  {error ? <p className="ios-info ios-danger">{error}</p> : null}
+                </div>
+              </>
+            )}
           </section>
         </div>
       </div>
